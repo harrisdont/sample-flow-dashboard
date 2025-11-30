@@ -33,12 +33,12 @@ export interface FabricItem {
 }
 
 export const silhouetteLibrary: SilhouetteItem[] = [
-  { id: '1', name: 'Long Kurta', code: 'W-LNG-001', category: 'kurta' },
-  { id: '2', name: 'Short Kurta', code: 'W-SRT-002', category: 'kurta' },
-  { id: '3', name: 'A-Line Shirt', code: 'C-SRT-012', category: 'shirt' },
-  { id: '4', name: 'Straight Shirt', code: 'F-STR-008', category: 'shirt' },
-  { id: '5', name: 'Tailored Blazer', code: 'F-BLZ-008', category: 'dress' },
-  { id: '6', name: 'Wide Leg Pants', code: 'W-PNT-015', category: 'pants' },
+  { id: '1', name: 'Long Kurta', code: 'W-LNG-001', category: 'kurta', technicalDrawing: '/src/assets/silhouettes/long-kurta.png' },
+  { id: '2', name: 'Short Kurta', code: 'W-SRT-002', category: 'kurta', technicalDrawing: '/src/assets/silhouettes/short-kurta.png' },
+  { id: '3', name: 'A-Line Shirt', code: 'C-SRT-012', category: 'shirt', technicalDrawing: '/src/assets/silhouettes/aline-shirt.png' },
+  { id: '4', name: 'Straight Shirt', code: 'F-STR-008', category: 'shirt', technicalDrawing: '/src/assets/silhouettes/straight-shirt.png' },
+  { id: '5', name: 'Tailored Blazer', code: 'F-BLZ-008', category: 'dress', technicalDrawing: '/src/assets/silhouettes/tailored-blazer.png' },
+  { id: '6', name: 'Wide Leg Pants', code: 'W-PNT-015', category: 'pants', technicalDrawing: '/src/assets/silhouettes/wide-leg-pants.png' },
 ];
 
 export const necklineLibrary: NecklineItem[] = [
