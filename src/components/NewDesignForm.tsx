@@ -131,26 +131,57 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="silhouette">Silhouette *</Label>
-                <Select value={selectedSilhouette} onValueChange={setSelectedSilhouette}>
-                  <SelectTrigger id="silhouette">
-                    <SelectValue placeholder="Select silhouette" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {silhouetteLibrary.map((silhouette) => (
-                      <SelectItem key={silhouette.id} value={silhouette.id}>
-                        {silhouette.code} - {silhouette.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {selectedSilhouetteData && (
-                  <div className="p-4 border border-border rounded-lg bg-card/50">
-                    <p className="text-sm text-muted-foreground">
-                      Category: <span className="text-foreground capitalize">{selectedSilhouetteData.category}</span>
-                    </p>
-                  </div>
-                )}
+                <Label>Silhouette *</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {silhouetteLibrary.map((silhouette) => (
+                    <button
+                      key={silhouette.id}
+                      type="button"
+                      onClick={() => setSelectedSilhouette(silhouette.id)}
+                      className={`relative p-4 border rounded-lg transition-all hover:border-primary ${
+                        selectedSilhouette === silhouette.id
+                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                          : 'border-border bg-card/50'
+                      }`}
+                    >
+                      <div className="aspect-square mb-3 flex items-center justify-center bg-background/50 rounded">
+                        {silhouette.technicalDrawing && (
+                          <img
+                            src={silhouette.technicalDrawing}
+                            alt={silhouette.name}
+                            className="w-full h-full object-contain p-2"
+                          />
+                        )}
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs font-mono text-muted-foreground mb-1">
+                          {silhouette.code}
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {silhouette.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground capitalize mt-1">
+                          {silhouette.category}
+                        </p>
+                      </div>
+                      {selectedSilhouette === silhouette.id && (
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                          <svg
+                            className="w-3 h-3 text-primary-foreground"
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-2">
