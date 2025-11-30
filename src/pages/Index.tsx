@@ -3,6 +3,7 @@ import { LoadingScreen } from '@/components/LoadingScreen';
 import { LiveDashboard } from '@/components/LiveDashboard';
 import { EJobCard } from '@/components/EJobCard';
 import { SamplingBoard } from '@/components/SamplingBoard';
+import { AddNewMenu } from '@/components/AddNewMenu';
 import { mockCollections, mockSamples, mockMetrics } from '@/data/mockData';
 import { Sample } from '@/types/sample';
 import { Button } from '@/components/ui/button';
@@ -75,6 +76,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="fixed top-4 right-4 z-10 flex gap-2">
+        <AddNewMenu />
         <Button
           variant={currentView === 'dashboard' ? 'default' : 'outline'}
           onClick={() => setCurrentView('dashboard')}
