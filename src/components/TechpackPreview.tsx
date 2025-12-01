@@ -14,6 +14,7 @@ interface TechpackPreviewProps {
   selectedCollection: string;
   selectedSilhouette: string;
   selectedFabric: string;
+  selectedProcesses?: string[];
   isCustom: boolean;
   selectedNeckline: string;
   selectedSleeve: string;
@@ -30,6 +31,7 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
       selectedCollection,
       selectedSilhouette,
       selectedFabric,
+      selectedProcesses = [],
       isCustom,
       selectedNeckline,
       selectedSleeve,
@@ -152,6 +154,22 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
                 <span className="text-muted-foreground">Composition:</span>
                 <p className="font-medium text-foreground">{fabricData?.composition}</p>
               </div>
+              {selectedProcesses.length > 0 && (
+                <div>
+                  <span className="text-muted-foreground">Production Processes:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {selectedProcesses.map(processId => (
+                      <Badge
+                        key={processId}
+                        variant="secondary"
+                        className="text-xs"
+                      >
+                        {processId.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
