@@ -87,16 +87,7 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
           {/* Silhouette Details */}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold text-foreground">Silhouette Specifications</h3>
-            <div className="flex gap-4 items-start">
-              {silhouetteData?.technicalDrawing && (
-                <div className="w-32 h-32 flex-shrink-0 bg-background/50 rounded border border-border p-2">
-                  <img
-                    src={silhouetteData.technicalDrawing}
-                    alt={silhouetteData.name}
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              )}
+            <div className="space-y-4">
               <div className="flex-1 space-y-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">Code:</span>
@@ -115,6 +106,35 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
                   </p>
                 </div>
               </div>
+              
+              {/* Technical Drawings */}
+              {silhouetteData?.technicalDrawing && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Technical Drawings</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <p className="text-xs text-center text-muted-foreground font-medium">Front View</p>
+                      <div className="aspect-square bg-background/50 rounded border border-border p-4 flex items-center justify-center">
+                        <img
+                          src={silhouetteData.technicalDrawing}
+                          alt={`${silhouetteData.name} - Front`}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs text-center text-muted-foreground font-medium">Back View</p>
+                      <div className="aspect-square bg-background/50 rounded border border-border p-4 flex items-center justify-center">
+                        <img
+                          src={silhouetteData.technicalDrawing}
+                          alt={`${silhouetteData.name} - Back`}
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
