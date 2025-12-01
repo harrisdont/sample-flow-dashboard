@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { TechpackPreview } from '@/components/TechpackPreview';
 import { mockCollections } from '@/data/mockData';
 import {
   silhouetteLibrary,
@@ -27,7 +29,9 @@ import {
   fabricLibrary,
 } from '@/data/libraryData';
 import { toast } from 'sonner';
-import { ChevronRight, ChevronLeft, Zap } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface NewDesignFormProps {
   open: boolean;
@@ -49,14 +53,39 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [fastTrack, setFastTrack] = useState(false);
   const [fastTrackReason, setFastTrackReason] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const techpackRef = useRef<HTMLDivElement>(null);
+
+  const validateStep = (currentStep: Step): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (currentStep === 1) {
+      if (!selectedCollection) newErrors.collection = 'Collection is required';
+      if (!selectedSilhouette) newErrors.silhouette = 'Silhouette is required';
+      if (!selectedFabric) newErrors.fabric = 'Base fabric is required';
+    }
+
+    if (currentStep === 2 && isCustom) {
+      if (!selectedNeckline) newErrors.neckline = 'Neckline is required for custom modifications';
+      if (!selectedSleeve) newErrors.sleeve = 'Sleeve is required for custom modifications';
+      if (!selectedSeamFinish) newErrors.seamFinish = 'Seam finish is required for custom modifications';
+    }
+
+    if (currentStep === 3) {
+      if (!sampleType) newErrors.sampleType = 'Sample type is required';
+      if (fastTrack && !fastTrackReason.trim()) {
+        newErrors.fastTrackReason = 'Fast track reason is required';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleNext = () => {
-    if (step === 1 && (!selectedCollection || !selectedSilhouette || !selectedFabric)) {
+    if (!validateStep(step)) {
       toast.error('Please complete all required fields');
-      return;
-    }
-    if (step === 2 && isCustom && (!selectedNeckline || !selectedSleeve || !selectedSeamFinish)) {
-      toast.error('Please complete all customization fields');
       return;
     }
     if (step < 3) setStep((step + 1) as Step);
@@ -66,9 +95,42 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
     if (step > 1) setStep((step - 1) as Step);
   };
 
+  const handleDownloadPdf = async () => {
+    if (!techpackRef.current) return;
+
+    setIsGeneratingPdf(true);
+    try {
+      const canvas = await html2canvas(techpackRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      pdf.save(`techpack-${selectedCollection}-${Date.now()}.pdf`);
+
+      toast.success('PDF Downloaded Successfully');
+    } catch (error) {
+      toast.error('Failed to generate PDF');
+      console.error('PDF generation error:', error);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   const handleSubmit = () => {
-    if (!sampleType) {
-      toast.error('Please select a sample type');
+    if (!validateStep(3)) {
+      toast.error('Please complete all required fields');
       return;
     }
     toast.success('Design Submitted Successfully', {
@@ -88,6 +150,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
     setAdditionalNotes('');
     setFastTrack(false);
     setFastTrackReason('');
+    setErrors({});
   };
 
   const selectedSilhouetteData = silhouetteLibrary.find(s => s.id === selectedSilhouette);
@@ -116,8 +179,14 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="collection">Collection *</Label>
-                <Select value={selectedCollection} onValueChange={setSelectedCollection}>
-                  <SelectTrigger id="collection">
+                <Select
+                  value={selectedCollection}
+                  onValueChange={(value) => {
+                    setSelectedCollection(value);
+                    setErrors((prev) => ({ ...prev, collection: '' }));
+                  }}
+                >
+                  <SelectTrigger id="collection" className={errors.collection ? 'border-destructive' : ''}>
                     <SelectValue placeholder="Select collection" />
                   </SelectTrigger>
                   <SelectContent>
@@ -128,16 +197,31 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.collection && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {errors.collection}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label>Silhouette *</Label>
+                {errors.silhouette && (
+                  <Alert variant="destructive" className="py-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">{errors.silhouette}</AlertDescription>
+                  </Alert>
+                )}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {silhouetteLibrary.map((silhouette) => (
                     <button
                       key={silhouette.id}
                       type="button"
-                      onClick={() => setSelectedSilhouette(silhouette.id)}
+                      onClick={() => {
+                        setSelectedSilhouette(silhouette.id);
+                        setErrors((prev) => ({ ...prev, silhouette: '' }));
+                      }}
                       className={`relative p-4 border rounded-lg transition-all hover:border-primary ${
                         selectedSilhouette === silhouette.id
                           ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
@@ -186,8 +270,14 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
 
               <div className="space-y-2">
                 <Label htmlFor="fabric">Base Fabric *</Label>
-                <Select value={selectedFabric} onValueChange={setSelectedFabric}>
-                  <SelectTrigger id="fabric">
+                <Select
+                  value={selectedFabric}
+                  onValueChange={(value) => {
+                    setSelectedFabric(value);
+                    setErrors((prev) => ({ ...prev, fabric: '' }));
+                  }}
+                >
+                  <SelectTrigger id="fabric" className={errors.fabric ? 'border-destructive' : ''}>
                     <SelectValue placeholder="Select base fabric" />
                   </SelectTrigger>
                   <SelectContent>
@@ -198,6 +288,12 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.fabric && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {errors.fabric}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -225,8 +321,14 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="neckline">Neckline *</Label>
-                    <Select value={selectedNeckline} onValueChange={setSelectedNeckline}>
-                      <SelectTrigger id="neckline">
+                    <Select
+                      value={selectedNeckline}
+                      onValueChange={(value) => {
+                        setSelectedNeckline(value);
+                        setErrors((prev) => ({ ...prev, neckline: '' }));
+                      }}
+                    >
+                      <SelectTrigger id="neckline" className={errors.neckline ? 'border-destructive' : ''}>
                         <SelectValue placeholder="Select neckline" />
                       </SelectTrigger>
                       <SelectContent>
@@ -237,12 +339,24 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                         ))}
                       </SelectContent>
                     </Select>
+                    {errors.neckline && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.neckline}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="sleeve">Sleeve *</Label>
-                    <Select value={selectedSleeve} onValueChange={setSelectedSleeve}>
-                      <SelectTrigger id="sleeve">
+                    <Select
+                      value={selectedSleeve}
+                      onValueChange={(value) => {
+                        setSelectedSleeve(value);
+                        setErrors((prev) => ({ ...prev, sleeve: '' }));
+                      }}
+                    >
+                      <SelectTrigger id="sleeve" className={errors.sleeve ? 'border-destructive' : ''}>
                         <SelectValue placeholder="Select sleeve" />
                       </SelectTrigger>
                       <SelectContent>
@@ -253,12 +367,24 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                         ))}
                       </SelectContent>
                     </Select>
+                    {errors.sleeve && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.sleeve}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="seam">Seam Finish Type *</Label>
-                    <Select value={selectedSeamFinish} onValueChange={setSelectedSeamFinish}>
-                      <SelectTrigger id="seam">
+                    <Select
+                      value={selectedSeamFinish}
+                      onValueChange={(value) => {
+                        setSelectedSeamFinish(value);
+                        setErrors((prev) => ({ ...prev, seamFinish: '' }));
+                      }}
+                    >
+                      <SelectTrigger id="seam" className={errors.seamFinish ? 'border-destructive' : ''}>
                         <SelectValue placeholder="Select seam finish" />
                       </SelectTrigger>
                       <SelectContent>
@@ -269,6 +395,12 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                         ))}
                       </SelectContent>
                     </Select>
+                    {errors.seamFinish && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.seamFinish}
+                      </p>
+                    )}
                   </div>
                 </>
               )}
@@ -288,7 +420,19 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label>Sample Type Demand *</Label>
-                <RadioGroup value={sampleType} onValueChange={setSampleType}>
+                {errors.sampleType && (
+                  <Alert variant="destructive" className="py-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">{errors.sampleType}</AlertDescription>
+                  </Alert>
+                )}
+                <RadioGroup
+                  value={sampleType}
+                  onValueChange={(value) => {
+                    setSampleType(value);
+                    setErrors((prev) => ({ ...prev, sampleType: '' }));
+                  }}
+                >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="butter-paper" id="butter-paper" />
                     <Label htmlFor="butter-paper" className="font-normal cursor-pointer">
@@ -348,26 +492,52 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                       id="fast-track-reason"
                       placeholder="Explain why this design needs fast track approval..."
                       value={fastTrackReason}
-                      onChange={(e) => setFastTrackReason(e.target.value)}
+                      onChange={(e) => {
+                        setFastTrackReason(e.target.value);
+                        setErrors((prev) => ({ ...prev, fastTrackReason: '' }));
+                      }}
                       rows={3}
+                      className={errors.fastTrackReason ? 'border-destructive' : ''}
                     />
+                    {errors.fastTrackReason && (
+                      <p className="text-sm text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        {errors.fastTrackReason}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
 
-              <div className="p-4 border border-border rounded-lg bg-card/50">
-                <h4 className="font-semibold mb-2">Techpack Preview</h4>
-                <div className="space-y-1 text-sm">
-                  <p><span className="text-muted-foreground">Collection:</span> {selectedCollection}</p>
-                  <p><span className="text-muted-foreground">Silhouette:</span> {selectedSilhouetteData?.name}</p>
-                  <p><span className="text-muted-foreground">Fabric:</span> {fabricLibrary.find(f => f.id === selectedFabric)?.name}</p>
-                  {isCustom && (
-                    <>
-                      <p><span className="text-muted-foreground">Neckline:</span> {necklineLibrary.find(n => n.id === selectedNeckline)?.name}</p>
-                      <p><span className="text-muted-foreground">Sleeve:</span> {sleeveLibrary.find(s => s.id === selectedSleeve)?.name}</p>
-                      <p><span className="text-muted-foreground">Seam Finish:</span> {seamFinishLibrary.find(s => s.id === selectedSeamFinish)?.name}</p>
-                    </>
-                  )}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-lg">Techpack Preview</h4>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadPdf}
+                    disabled={isGeneratingPdf || !selectedCollection || !selectedSilhouette || !selectedFabric}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {isGeneratingPdf ? 'Generating...' : 'Download PDF'}
+                  </Button>
+                </div>
+
+                <div className="max-h-[500px] overflow-y-auto border border-border rounded-lg">
+                  <TechpackPreview
+                    ref={techpackRef}
+                    selectedCollection={selectedCollection}
+                    selectedSilhouette={selectedSilhouette}
+                    selectedFabric={selectedFabric}
+                    isCustom={isCustom}
+                    selectedNeckline={selectedNeckline}
+                    selectedSleeve={selectedSleeve}
+                    selectedSeamFinish={selectedSeamFinish}
+                    sampleType={sampleType}
+                    additionalNotes={additionalNotes}
+                    fastTrack={fastTrack}
+                    fastTrackReason={fastTrackReason}
+                  />
                 </div>
               </div>
             </div>
