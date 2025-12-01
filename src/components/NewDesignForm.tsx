@@ -53,9 +53,27 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const [additionalNotes, setAdditionalNotes] = useState('');
   const [fastTrack, setFastTrack] = useState(false);
   const [fastTrackReason, setFastTrackReason] = useState('');
+  const [selectedProcesses, setSelectedProcesses] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const techpackRef = useRef<HTMLDivElement>(null);
+
+  const availableProcesses = [
+    { id: 'multihead', label: 'Multihead' },
+    { id: 'pakki', label: 'Pakki' },
+    { id: 'adda', label: 'Adda' },
+    { id: 'block-print', label: 'Block Print' },
+    { id: 'digital-print', label: 'Digital Print' },
+    { id: 'screen-print', label: 'Screen Print' },
+  ];
+
+  const toggleProcess = (processId: string) => {
+    setSelectedProcesses(prev => 
+      prev.includes(processId)
+        ? prev.filter(p => p !== processId)
+        : [...prev, processId]
+    );
+  };
 
   const validateStep = (currentStep: Step): boolean => {
     const newErrors: Record<string, string> = {};
@@ -150,6 +168,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
     setAdditionalNotes('');
     setFastTrack(false);
     setFastTrackReason('');
+    setSelectedProcesses([]);
     setErrors({});
   };
 
@@ -292,6 +311,33 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                   <p className="text-sm text-destructive flex items-center gap-1">
                     <AlertCircle className="h-3 w-3" />
                     {errors.fabric}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Production Processes</Label>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Select applicable embellishment and printing processes
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {availableProcesses.map((process) => (
+                    <Badge
+                      key={process.id}
+                      variant={selectedProcesses.includes(process.id) ? 'default' : 'outline'}
+                      className="cursor-pointer px-4 py-2 text-sm transition-all hover:scale-105"
+                      onClick={() => toggleProcess(process.id)}
+                    >
+                      {process.label}
+                      {selectedProcesses.includes(process.id) && (
+                        <span className="ml-2">✓</span>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+                {selectedProcesses.length > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {selectedProcesses.length} process(es) selected
                   </p>
                 )}
               </div>
@@ -529,6 +575,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     selectedCollection={selectedCollection}
                     selectedSilhouette={selectedSilhouette}
                     selectedFabric={selectedFabric}
+                    selectedProcesses={selectedProcesses}
                     isCustom={isCustom}
                     selectedNeckline={selectedNeckline}
                     selectedSleeve={selectedSleeve}
