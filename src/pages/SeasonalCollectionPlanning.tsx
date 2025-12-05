@@ -176,9 +176,9 @@ const SeasonalCollectionPlanning = () => {
 
   const remaining = totalDesignCount - totalAllocated;
 
-  const handleTotalChange = (value: string) => {
+const handleTotalChange = (value: string) => {
     const num = parseInt(value) || 0;
-    setTotalDesignCount(Math.max(0, Math.min(1000, num)));
+    setTotalDesignCount(Math.max(0, Math.min(2000, num)));
   };
 
   const getLineCategoryTotal = (lineId: string) => {
@@ -285,7 +285,7 @@ const SeasonalCollectionPlanning = () => {
                     onChange={(e) => handleTotalChange(e.target.value)}
                     className="w-32"
                     min={0}
-                    max={1000}
+                    max={2000}
                   />
                   <span className="text-sm text-muted-foreground">designs</span>
                 </div>
