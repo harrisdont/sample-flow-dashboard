@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -18,9 +19,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, Upload, X, Plus } from 'lucide-react';
-import { format } from 'date-fns';
+import { CalendarIcon, Upload, X, Plus, AlertTriangle, Clock } from 'lucide-react';
+import { format, subDays } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { 
+  TECHNIQUE_BUFFERS, 
+  calculateTechniqueBuffer, 
+  getComplexTechniques,
+  DEFAULT_LEAD_TIMES 
+} from '@/data/leadTimeSettings';
 
 interface CapsuleCollectionPlanFormProps {
   lineName: string;
@@ -35,15 +42,6 @@ const gtmStrategies = [
   { id: 'summer-collection', name: 'Summer Collection 2025', targetDate: new Date(2025, 5, 1) },
   { id: 'festive-season', name: 'Festive Season 2025', targetDate: new Date(2025, 9, 10) },
   { id: 'winter-release', name: 'Winter Release 2025', targetDate: new Date(2025, 11, 1) },
-];
-
-const techniques = [
-  { id: 'jacquards', label: 'Jacquards' },
-  { id: 'yarn-dyed', label: 'Yarn Dyed' },
-  { id: 'embroidery', label: 'Embroidery' },
-  { id: 'handwork', label: 'Handwork' },
-  { id: 'block-printing', label: 'Block Printing' },
-  { id: 'multihead', label: 'Multihead' },
 ];
 
 const CapsuleCollectionPlanForm = ({
@@ -120,6 +118,30 @@ const CapsuleCollectionPlanForm = ({
   };
 
   const totalPieces = productMix.twoPiece + productMix.onePiece + productMix.threePiece;
+
+  // Calculate buffer days and adjusted production dates
+  const techniqueBufferDays = useMemo(() => 
+    calculateTechniqueBuffer(selectedTechniques), 
+    [selectedTechniques]
+  );
+  
+  const complexTechniques = useMemo(() => 
+    getComplexTechniques(selectedTechniques),
+    [selectedTechniques]
+  );
+
+  const baseProductionDays = DEFAULT_LEAD_TIMES.production;
+  const totalProductionDays = baseProductionDays + techniqueBufferDays;
+
+  const productionStartDate = useMemo(() => {
+    if (!targetDate) return undefined;
+    return subDays(targetDate, totalProductionDays);
+  }, [targetDate, totalProductionDays]);
+
+  const samplingStartDate = useMemo(() => {
+    if (!productionStartDate) return undefined;
+    return subDays(productionStartDate, DEFAULT_LEAD_TIMES.sampling);
+  }, [productionStartDate]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -316,7 +338,7 @@ const CapsuleCollectionPlanForm = ({
       <div className="space-y-3">
         <Label>Techniques/Processes Planned</Label>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {techniques.map(technique => (
+          {TECHNIQUE_BUFFERS.map(technique => (
             <div
               key={technique.id}
               className="flex items-center space-x-2"
@@ -328,14 +350,77 @@ const CapsuleCollectionPlanForm = ({
               />
               <label
                 htmlFor={technique.id}
-                className="text-sm cursor-pointer"
+                className={cn(
+                  "text-sm cursor-pointer",
+                  technique.isComplex && "font-medium"
+                )}
               >
                 {technique.label}
+                {technique.isComplex && (
+                  <span className="text-xs text-muted-foreground ml-1">(+{technique.bufferDays}d)</span>
+                )}
               </label>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Production Timeline Summary */}
+      {targetDate && (
+        <Card className="p-4 bg-muted/50">
+          <div className="flex items-center gap-2 mb-3">
+            <Clock className="h-4 w-4 text-primary" />
+            <Label className="text-base font-medium">Production Timeline</Label>
+          </div>
+          
+          {complexTechniques.length > 0 && (
+            <div className="flex items-start gap-2 mb-3 p-2 rounded bg-[hsl(var(--status-pending))]/10 border border-[hsl(var(--status-pending))]/20">
+              <AlertTriangle className="h-4 w-4 text-[hsl(var(--status-pending))] mt-0.5" />
+              <div className="text-sm">
+                <span className="font-medium">Complex techniques selected:</span>
+                <span className="ml-1">
+                  {complexTechniques.map(t => t.label).join(', ')}
+                </span>
+                <span className="text-muted-foreground ml-1">
+                  (+{techniqueBufferDays} buffer days added)
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <div className="text-muted-foreground">Sampling Start</div>
+              <div className="font-medium">
+                {samplingStartDate ? format(samplingStartDate, 'MMM d, yyyy') : '-'}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Production Start</div>
+              <div className="font-medium">
+                {productionStartDate ? format(productionStartDate, 'MMM d, yyyy') : '-'}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">In-store Date</div>
+              <div className="font-medium text-primary">
+                {format(targetDate, 'MMM d, yyyy')}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground">Total Production Days</div>
+              <div className="font-medium">
+                {totalProductionDays} days
+                {techniqueBufferDays > 0 && (
+                  <span className="text-xs text-muted-foreground ml-1">
+                    ({baseProductionDays} + {techniqueBufferDays} buffer)
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4 border-t">

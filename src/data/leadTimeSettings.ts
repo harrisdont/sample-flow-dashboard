@@ -38,6 +38,35 @@ export const DEFAULT_LEAD_TIMES: LeadTimeSettings = {
   dispatch: 1,
 };
 
+// Buffer days for complex techniques/processes
+export interface TechniqueBuffer {
+  id: string;
+  label: string;
+  bufferDays: number;
+  isComplex: boolean;
+}
+
+export const TECHNIQUE_BUFFERS: TechniqueBuffer[] = [
+  { id: 'jacquards', label: 'Jacquards', bufferDays: 3, isComplex: false },
+  { id: 'yarn-dyed', label: 'Yarn Dyed', bufferDays: 2, isComplex: false },
+  { id: 'embroidery', label: 'Embroidery', bufferDays: 5, isComplex: true },
+  { id: 'handwork', label: 'Handwork', bufferDays: 10, isComplex: true },
+  { id: 'block-printing', label: 'Block Printing', bufferDays: 7, isComplex: true },
+  { id: 'multihead', label: 'Multihead', bufferDays: 3, isComplex: false },
+];
+
+// Calculate total buffer days for selected techniques
+export const calculateTechniqueBuffer = (selectedTechniqueIds: string[]): number => {
+  return TECHNIQUE_BUFFERS
+    .filter(t => selectedTechniqueIds.includes(t.id))
+    .reduce((total, t) => total + t.bufferDays, 0);
+};
+
+// Get complex techniques from selection
+export const getComplexTechniques = (selectedTechniqueIds: string[]): TechniqueBuffer[] => {
+  return TECHNIQUE_BUFFERS.filter(t => selectedTechniqueIds.includes(t.id) && t.isComplex);
+};
+
 // Human-readable labels for display
 export const LEAD_TIME_LABELS: Record<keyof LeadTimeSettings, string> = {
   fabricDesign: 'Fabric Design',
