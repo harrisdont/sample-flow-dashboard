@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
   SelectContent,
@@ -19,15 +20,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, Upload, X, Plus, AlertTriangle, Clock } from 'lucide-react';
-import { format, subDays } from 'date-fns';
+import { CalendarIcon, Upload, X, Plus, AlertTriangle, Clock, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { 
   TECHNIQUE_BUFFERS, 
-  calculateTechniqueBuffer, 
   getComplexTechniques,
-  DEFAULT_LEAD_TIMES 
 } from '@/data/leadTimeSettings';
+import { calculateBackwardsSchedule, getPhaseColor } from '@/lib/schedulingEngine';
 
 interface CapsuleCollectionPlanFormProps {
   lineName: string;
@@ -119,29 +119,16 @@ const CapsuleCollectionPlanForm = ({
 
   const totalPieces = productMix.twoPiece + productMix.onePiece + productMix.threePiece;
 
-  // Calculate buffer days and adjusted production dates
-  const techniqueBufferDays = useMemo(() => 
-    calculateTechniqueBuffer(selectedTechniques), 
-    [selectedTechniques]
-  );
-  
+  // Calculate complete schedule with backwards scheduling
+  const schedule = useMemo(() => {
+    if (!targetDate) return null;
+    return calculateBackwardsSchedule(targetDate, selectedTechniques);
+  }, [targetDate, selectedTechniques]);
+
   const complexTechniques = useMemo(() => 
     getComplexTechniques(selectedTechniques),
     [selectedTechniques]
   );
-
-  const baseProductionDays = DEFAULT_LEAD_TIMES.production;
-  const totalProductionDays = baseProductionDays + techniqueBufferDays;
-
-  const productionStartDate = useMemo(() => {
-    if (!targetDate) return undefined;
-    return subDays(targetDate, totalProductionDays);
-  }, [targetDate, totalProductionDays]);
-
-  const samplingStartDate = useMemo(() => {
-    if (!productionStartDate) return undefined;
-    return subDays(productionStartDate, DEFAULT_LEAD_TIMES.sampling);
-  }, [productionStartDate]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -365,12 +352,17 @@ const CapsuleCollectionPlanForm = ({
         </div>
       </div>
 
-      {/* Production Timeline Summary */}
-      {targetDate && (
+      {/* Production Timeline Summary - Full Critical Path */}
+      {targetDate && schedule && (
         <Card className="p-4 bg-muted/50">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock className="h-4 w-4 text-primary" />
-            <Label className="text-base font-medium">Production Timeline</Label>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              <Label className="text-base font-medium">Production Timeline</Label>
+            </div>
+            <Badge variant="outline">
+              {schedule.totalDays} days total
+            </Badge>
           </div>
           
           {complexTechniques.length > 0 && (
@@ -382,42 +374,68 @@ const CapsuleCollectionPlanForm = ({
                   {complexTechniques.map(t => t.label).join(', ')}
                 </span>
                 <span className="text-muted-foreground ml-1">
-                  (+{techniqueBufferDays} buffer days added)
+                  (+{schedule.techniqueBuffer} buffer days added)
                 </span>
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <div className="text-muted-foreground">Sampling Start</div>
-              <div className="font-medium">
-                {samplingStartDate ? format(samplingStartDate, 'MMM d, yyyy') : '-'}
+          {/* Key Dates Summary */}
+          <div className="grid grid-cols-3 gap-3 text-sm mb-4">
+            <div className="p-2 rounded bg-purple-500/10 border border-purple-500/20">
+              <div className="text-xs text-muted-foreground">Design Start</div>
+              <div className="font-medium text-purple-600">
+                {format(schedule.fabricDesignStartDate, 'MMM d, yyyy')}
               </div>
             </div>
-            <div>
-              <div className="text-muted-foreground">Production Start</div>
-              <div className="font-medium">
-                {productionStartDate ? format(productionStartDate, 'MMM d, yyyy') : '-'}
+            <div className="p-2 rounded bg-red-500/10 border border-red-500/20">
+              <div className="text-xs text-muted-foreground">Production Start</div>
+              <div className="font-medium text-red-600">
+                {format(schedule.productionStartDate, 'MMM d, yyyy')}
               </div>
             </div>
-            <div>
-              <div className="text-muted-foreground">In-store Date</div>
-              <div className="font-medium text-primary">
+            <div className="p-2 rounded bg-green-500/10 border border-green-500/20">
+              <div className="text-xs text-muted-foreground">In-Store Date</div>
+              <div className="font-medium text-green-600">
                 {format(targetDate, 'MMM d, yyyy')}
               </div>
             </div>
-            <div>
-              <div className="text-muted-foreground">Total Production Days</div>
-              <div className="font-medium">
-                {totalProductionDays} days
-                {techniqueBufferDays > 0 && (
-                  <span className="text-xs text-muted-foreground ml-1">
-                    ({baseProductionDays} + {techniqueBufferDays} buffer)
+          </div>
+
+          {/* Full Milestone Breakdown */}
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Critical Path Breakdown</Label>
+            <ScrollArea className="h-40">
+              <div className="space-y-1 pr-4">
+                {schedule.milestones.map((milestone, idx) => (
+                  <div 
+                    key={milestone.id}
+                    className="flex items-center gap-2 text-xs py-1.5 px-2 rounded hover:bg-muted/50"
+                  >
+                    {idx > 0 && (
+                      <ArrowRight className="h-3 w-3 text-muted-foreground/50 -ml-1" />
+                    )}
+                    <div className={cn('w-2 h-2 rounded', getPhaseColor(milestone.phase))} />
+                    <span className="flex-1 font-medium">{milestone.label}</span>
+                    <span className="text-muted-foreground">
+                      {format(milestone.startDate, 'MMM d')} - {format(milestone.endDate, 'MMM d')}
+                    </span>
+                    <Badge variant="secondary" className="text-[10px] h-5">
+                      {milestone.duration}d
+                    </Badge>
+                  </div>
+                ))}
+                {/* Final In-Store milestone */}
+                <div className="flex items-center gap-2 text-xs py-1.5 px-2 rounded bg-green-500/10">
+                  <ArrowRight className="h-3 w-3 text-muted-foreground/50 -ml-1" />
+                  <CheckCircle2 className="h-3 w-3 text-green-500" />
+                  <span className="flex-1 font-medium text-green-600">In-Store Delivery</span>
+                  <span className="font-semibold text-green-600">
+                    {format(targetDate, 'MMM d, yyyy')}
                   </span>
-                )}
+                </div>
               </div>
-            </div>
+            </ScrollArea>
           </div>
         </Card>
       )}
