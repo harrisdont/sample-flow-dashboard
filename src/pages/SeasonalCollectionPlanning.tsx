@@ -7,26 +7,56 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ArrowLeft, Settings2 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ArrowLeft, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CapsuleCollectionPlanForm from '@/components/CapsuleCollectionPlanForm';
 import MasterCalendar from '@/components/MasterCalendar';
+import { cn } from '@/lib/utils';
 
 interface ProductLine {
   id: string;
   name: string;
   color: string;
   status: 'planning' | 'in-progress' | 'completed';
+  type: 'fashion' | 'accessories';
+}
+
+// Fashion category breakdown
+const FASHION_CATEGORIES = ['1pc', '2pc', '3pc', 'dupattas', 'lowers'] as const;
+type FashionCategory = typeof FASHION_CATEGORIES[number];
+
+// Accessories category breakdown (for Leather & Regen)
+const ACCESSORIES_CATEGORIES = ['shoes', 'bags', 'scrunchies', 'jewellery', 'parandas', 'misc', 'stationery'] as const;
+type AccessoriesCategory = typeof ACCESSORIES_CATEGORIES[number];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  '1pc': '1 Piece',
+  '2pc': '2 Piece',
+  '3pc': '3 Piece',
+  'dupattas': 'Dupattas',
+  'lowers': 'Lowers',
+  'shoes': 'Shoes',
+  'bags': 'Bags',
+  'scrunchies': 'Scrunchies',
+  'jewellery': 'Jewellery',
+  'parandas': 'Parandas',
+  'misc': 'Misc Items',
+  'stationery': 'Stationery',
+};
+
+interface CategoryAllocation {
+  [category: string]: number;
 }
 
 const initialProductLines: ProductLine[] = [
-  { id: 'cottage', name: 'Cottage', color: 'bg-fashion-cottage', status: 'planning' },
-  { id: 'classic', name: 'Classic', color: 'bg-fashion-classic', status: 'planning' },
-  { id: 'formals', name: 'Formals', color: 'bg-fashion-formals', status: 'planning' },
-  { id: 'woman', name: 'Woman', color: 'bg-fashion-woman', status: 'planning' },
-  { id: 'ming', name: 'Ming', color: 'bg-fashion-ming', status: 'planning' },
-  { id: 'leather', name: 'Leather', color: 'bg-muted', status: 'planning' },
-  { id: 'regen', name: 'Regen', color: 'bg-muted', status: 'planning' },
+  { id: 'cottage', name: 'Cottage', color: 'bg-fashion-cottage', status: 'planning', type: 'fashion' },
+  { id: 'classic', name: 'Classic', color: 'bg-fashion-classic', status: 'planning', type: 'fashion' },
+  { id: 'formals', name: 'Formals', color: 'bg-fashion-formals', status: 'planning', type: 'fashion' },
+  { id: 'woman', name: 'Woman', color: 'bg-fashion-woman', status: 'planning', type: 'fashion' },
+  { id: 'ming', name: 'Ming', color: 'bg-fashion-ming', status: 'planning', type: 'fashion' },
+  { id: 'leather', name: 'Leather', color: 'bg-amber-600', status: 'planning', type: 'accessories' },
+  { id: 'regen', name: 'Regen', color: 'bg-emerald-600', status: 'planning', type: 'accessories' },
 ];
 
 const getStatusVariant = (status: ProductLine['status']) => {
@@ -65,7 +95,19 @@ const SeasonalCollectionPlanning = () => {
     });
     return initial;
   });
+  const [categoryAllocations, setCategoryAllocations] = useState<Record<string, CategoryAllocation>>(() => {
+    const initial: Record<string, CategoryAllocation> = {};
+    initialProductLines.forEach(line => {
+      const categories = line.type === 'fashion' ? FASHION_CATEGORIES : ACCESSORIES_CATEGORIES;
+      initial[line.id] = {};
+      categories.forEach(cat => {
+        initial[line.id][cat] = 0;
+      });
+    });
+    return initial;
+  });
   const [selectedLine, setSelectedLine] = useState<ProductLine | null>(null);
+  const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({});
 
   const totalAllocated = useMemo(() => {
     return Object.values(lineAllocations).reduce((sum, val) => sum + val, 0);
@@ -76,6 +118,36 @@ const SeasonalCollectionPlanning = () => {
   const handleTotalChange = (value: string) => {
     const num = parseInt(value) || 0;
     setTotalDesignCount(Math.max(0, Math.min(1000, num)));
+  };
+
+  const getLineCategoryTotal = (lineId: string) => {
+    return Object.values(categoryAllocations[lineId] || {}).reduce((sum, val) => sum + val, 0);
+  };
+
+  const handleCategoryChange = (lineId: string, category: string, value: number) => {
+    const line = initialProductLines.find(l => l.id === lineId);
+    if (!line) return;
+    
+    const currentTotal = getLineCategoryTotal(lineId);
+    const currentCatValue = categoryAllocations[lineId]?.[category] || 0;
+    const lineTotal = lineAllocations[lineId] || 0;
+    const maxAllowable = lineTotal - currentTotal + currentCatValue;
+    const newValue = Math.max(0, Math.min(maxAllowable, value));
+    
+    setCategoryAllocations(prev => ({
+      ...prev,
+      [lineId]: {
+        ...prev[lineId],
+        [category]: newValue
+      }
+    }));
+  };
+
+  const toggleLineExpand = (lineId: string) => {
+    setExpandedLines(prev => ({
+      ...prev,
+      [lineId]: !prev[lineId]
+    }));
   };
 
   const handleAllocationChange = (lineId: string, value: number) => {
@@ -168,32 +240,146 @@ const SeasonalCollectionPlanning = () => {
               <Label className="text-base font-medium mb-4 block">
                 Distribute Designs by Line
               </Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {initialProductLines.map((line) => (
-                  <div key={line.id} className="space-y-2 p-3 rounded-lg border bg-card">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${line.color}`} />
-                        <span className="font-medium text-sm">{line.name}</span>
-                      </div>
-                      <Input
-                        type="number"
-                        value={lineAllocations[line.id]}
-                        onChange={(e) => handleInputChange(line.id, e.target.value)}
-                        className="w-20 h-8 text-right"
-                        min={0}
-                        max={totalDesignCount}
-                      />
-                    </div>
-                    <Slider
-                      value={[lineAllocations[line.id]]}
-                      onValueChange={(values) => handleSliderChange(line.id, values)}
-                      max={totalDesignCount}
-                      step={1}
-                      className="w-full"
-                    />
-                  </div>
-                ))}
+              
+              {/* Fashion Lines */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">Fashion Lines</h4>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {initialProductLines.filter(l => l.type === 'fashion').map((line) => {
+                    const categoryTotal = getLineCategoryTotal(line.id);
+                    const unallocated = lineAllocations[line.id] - categoryTotal;
+                    
+                    return (
+                      <Collapsible
+                        key={line.id}
+                        open={expandedLines[line.id]}
+                        onOpenChange={() => toggleLineExpand(line.id)}
+                      >
+                        <div className="p-3 rounded-lg border bg-card">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className={cn('w-3 h-3 rounded-full', line.color)} />
+                              <span className="font-medium text-sm">{line.name}</span>
+                            </div>
+                            <Input
+                              type="number"
+                              value={lineAllocations[line.id]}
+                              onChange={(e) => handleInputChange(line.id, e.target.value)}
+                              className="w-20 h-8 text-right"
+                              min={0}
+                              max={totalDesignCount}
+                            />
+                          </div>
+                          <Slider
+                            value={[lineAllocations[line.id]]}
+                            onValueChange={(values) => handleSliderChange(line.id, values)}
+                            max={totalDesignCount}
+                            step={1}
+                            className="w-full mb-2"
+                          />
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="w-full h-7 text-xs">
+                              {expandedLines[line.id] ? (
+                                <>Hide Categories <ChevronUp className="h-3 w-3 ml-1" /></>
+                              ) : (
+                                <>Show Categories <ChevronDown className="h-3 w-3 ml-1" /></>
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="pt-2 space-y-2">
+                            {unallocated > 0 && (
+                              <p className="text-xs text-amber-600">{unallocated} unassigned to categories</p>
+                            )}
+                            {FASHION_CATEGORIES.map(cat => (
+                              <div key={cat} className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">{CATEGORY_LABELS[cat]}</span>
+                                <Input
+                                  type="number"
+                                  value={categoryAllocations[line.id]?.[cat] || 0}
+                                  onChange={(e) => handleCategoryChange(line.id, cat, parseInt(e.target.value) || 0)}
+                                  className="w-16 h-6 text-right text-xs"
+                                  min={0}
+                                />
+                              </div>
+                            ))}
+                          </CollapsibleContent>
+                        </div>
+                      </Collapsible>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Accessories Lines (Leather & Regen) */}
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">Accessories Lines</h4>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {initialProductLines.filter(l => l.type === 'accessories').map((line) => {
+                    const categoryTotal = getLineCategoryTotal(line.id);
+                    const unallocated = lineAllocations[line.id] - categoryTotal;
+                    
+                    return (
+                      <Collapsible
+                        key={line.id}
+                        open={expandedLines[line.id]}
+                        onOpenChange={() => toggleLineExpand(line.id)}
+                      >
+                        <div className="p-3 rounded-lg border bg-card">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className={cn('w-3 h-3 rounded-full', line.color)} />
+                              <span className="font-medium text-sm">{line.name}</span>
+                              <Badge variant="outline" className="text-[10px]">Accessories</Badge>
+                            </div>
+                            <Input
+                              type="number"
+                              value={lineAllocations[line.id]}
+                              onChange={(e) => handleInputChange(line.id, e.target.value)}
+                              className="w-20 h-8 text-right"
+                              min={0}
+                              max={totalDesignCount}
+                            />
+                          </div>
+                          <Slider
+                            value={[lineAllocations[line.id]]}
+                            onValueChange={(values) => handleSliderChange(line.id, values)}
+                            max={totalDesignCount}
+                            step={1}
+                            className="w-full mb-2"
+                          />
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="w-full h-7 text-xs">
+                              {expandedLines[line.id] ? (
+                                <>Hide Categories <ChevronUp className="h-3 w-3 ml-1" /></>
+                              ) : (
+                                <>Show Categories <ChevronDown className="h-3 w-3 ml-1" /></>
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="pt-2 space-y-2">
+                            {unallocated > 0 && (
+                              <p className="text-xs text-amber-600">{unallocated} unassigned to categories</p>
+                            )}
+                            <div className="grid grid-cols-2 gap-2">
+                              {ACCESSORIES_CATEGORIES.map(cat => (
+                                <div key={cat} className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">{CATEGORY_LABELS[cat]}</span>
+                                  <Input
+                                    type="number"
+                                    value={categoryAllocations[line.id]?.[cat] || 0}
+                                    onChange={(e) => handleCategoryChange(line.id, cat, parseInt(e.target.value) || 0)}
+                                    className="w-14 h-6 text-right text-xs"
+                                    min={0}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </div>
+                      </Collapsible>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -204,6 +390,9 @@ const SeasonalCollectionPlanning = () => {
           {initialProductLines.map((line) => {
             const allocated = lineAllocations[line.id];
             const progressPercent = getProgressPercentage(allocated);
+            const categories = line.type === 'fashion' ? FASHION_CATEGORIES : ACCESSORIES_CATEGORIES;
+            const catAllocs = categoryAllocations[line.id] || {};
+            const categoryTotal = getLineCategoryTotal(line.id);
             
             return (
               <Card
@@ -214,7 +403,7 @@ const SeasonalCollectionPlanning = () => {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded-full ${line.color}`} />
+                      <div className={cn('w-4 h-4 rounded-full', line.color)} />
                       <CardTitle className="text-lg">{line.name}</CardTitle>
                     </div>
                     <Badge variant={getStatusVariant(line.status)}>
@@ -232,10 +421,32 @@ const SeasonalCollectionPlanning = () => {
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
-                        className={`h-full ${line.color} transition-all duration-300`}
+                        className={cn('h-full transition-all duration-300', line.color)}
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>
+                    
+                    {/* Category breakdown summary */}
+                    {allocated > 0 && (
+                      <div className="pt-2 border-t">
+                        <p className="text-[10px] text-muted-foreground mb-1.5">Category Breakdown:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {categories.map(cat => {
+                            const count = catAllocs[cat] || 0;
+                            if (count === 0) return null;
+                            return (
+                              <Badge key={cat} variant="secondary" className="text-[9px] h-5">
+                                {CATEGORY_LABELS[cat]}: {count}
+                              </Badge>
+                            );
+                          })}
+                          {categoryTotal === 0 && (
+                            <span className="text-[10px] text-muted-foreground italic">Not broken down yet</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
                     <p className="text-xs text-muted-foreground">
                       {allocated > 0 
                         ? `${progressPercent.toFixed(1)}% of total season designs`
