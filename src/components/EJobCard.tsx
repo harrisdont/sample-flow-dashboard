@@ -3,9 +3,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sample } from '@/types/sample';
-import { ArrowLeft, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Sample, ProcessStage } from '@/types/sample';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, CalendarClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { 
+  calculateEstimatedCompletion,
+  getDateStatus,
+  formatDateWithRemaining,
+  getDaysRemaining
+} from '@/lib/leadTimeCalculator';
 
 const lineColors: Record<string, string> = {
   woman: 'bg-[hsl(var(--line-woman))]',
@@ -22,7 +28,21 @@ interface EJobCardProps {
   onReject: () => void;
 }
 
+const allStages: ProcessStage[] = [
+  'design', 'pattern', 'motif', 'punching', 'semi-stitching', 
+  'complete-stitching', 'screen-print', 'multihead', 'pakki', 
+  'ari-dori', 'adda', 'cottage-work', 'hand-finishes'
+];
+
 export const EJobCard = ({ sample, onBack, onApprove, onReject }: EJobCardProps) => {
+  const estimatedCompletion = calculateEstimatedCompletion(
+    new Date(),
+    sample.currentStage,
+    allStages
+  );
+  const daysRemaining = getDaysRemaining(sample.targetDate);
+  const dateStatus = getDateStatus(sample.targetDate);
+  
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -97,7 +117,52 @@ export const EJobCard = ({ sample, onBack, onApprove, onReject }: EJobCardProps)
                 </div>
                 <div>
                   <div className="text-sm text-muted-foreground">Target Date</div>
-                  <div className="font-medium">{new Date(sample.targetDate).toLocaleDateString()}</div>
+                  <div className={cn(
+                    "font-medium",
+                    dateStatus === 'overdue' && 'text-[hsl(var(--status-delayed))]',
+                    dateStatus === 'due-today' && 'text-[hsl(var(--status-pending))]'
+                  )}>
+                    {formatDateWithRemaining(sample.targetDate)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-muted-foreground">Estimated Completion</div>
+                  <div className="font-medium flex items-center gap-1">
+                    <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                    {formatDateWithRemaining(estimatedCompletion)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Lead Time Summary Card */}
+              <div className="mt-4 p-4 rounded-lg bg-muted/50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium">Time Status</span>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      dateStatus === 'overdue' && 'text-[hsl(var(--status-delayed))]',
+                      dateStatus === 'due-today' && 'text-[hsl(var(--status-pending))]',
+                      dateStatus === 'due-soon' && 'text-[hsl(var(--status-pending))]',
+                      dateStatus === 'on-track' && 'text-[hsl(var(--status-approved))]'
+                    )}>
+                      {daysRemaining < 0 
+                        ? `${Math.abs(daysRemaining)} days overdue`
+                        : daysRemaining === 0 
+                          ? 'Due today'
+                          : `${daysRemaining} days remaining`
+                      }
+                    </p>
+                  </div>
+                  <Badge variant={
+                    dateStatus === 'overdue' ? 'destructive' :
+                    dateStatus === 'due-today' || dateStatus === 'due-soon' ? 'secondary' :
+                    'outline'
+                  }>
+                    {dateStatus === 'overdue' ? 'Overdue' :
+                     dateStatus === 'due-today' ? 'Due Today' :
+                     dateStatus === 'due-soon' ? 'Due Soon' : 'On Track'}
+                  </Badge>
                 </div>
               </div>
 
