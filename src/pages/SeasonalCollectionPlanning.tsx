@@ -68,6 +68,17 @@ interface LaunchAllocation {
   [launchId: string]: number;
 }
 
+// Default MOQ per design for each line
+const DEFAULT_MOQS: Record<string, number> = {
+  classic: 500,
+  cottage: 450,
+  woman: 600,
+  formals: 460,
+  ming: 340,
+  leather: 0,
+  regen: 0,
+};
+
 const initialProductLines: ProductLine[] = [
   { id: 'cottage', name: 'Cottage', color: 'bg-fashion-cottage', status: 'planning', type: 'fashion' },
   { id: 'classic', name: 'Classic', color: 'bg-fashion-classic', status: 'planning', type: 'fashion' },
@@ -135,6 +146,7 @@ const SeasonalCollectionPlanning = () => {
   });
   const [selectedLine, setSelectedLine] = useState<ProductLine | null>(null);
   const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({});
+  const [lineMOQs, setLineMOQs] = useState<Record<string, number>>(() => ({ ...DEFAULT_MOQS }));
 
   const totalLaunchAllocated = useMemo(() => {
     return Object.values(launchAllocations).reduce((sum, val) => sum + val, 0);
@@ -145,6 +157,22 @@ const SeasonalCollectionPlanning = () => {
   const totalAllocated = useMemo(() => {
     return Object.values(lineAllocations).reduce((sum, val) => sum + val, 0);
   }, [lineAllocations]);
+
+  // Calculate total stock planned (designs × MOQ for each line)
+  const totalStockPlanned = useMemo(() => {
+    return initialProductLines.reduce((sum, line) => {
+      const designs = lineAllocations[line.id] || 0;
+      const moq = lineMOQs[line.id] || 0;
+      return sum + (designs * moq);
+    }, 0);
+  }, [lineAllocations, lineMOQs]);
+
+  const handleMOQChange = (lineId: string, value: number) => {
+    setLineMOQs(prev => ({
+      ...prev,
+      [lineId]: Math.max(0, value)
+    }));
+  };
 
   const remaining = totalDesignCount - totalAllocated;
 
@@ -243,7 +271,7 @@ const SeasonalCollectionPlanning = () => {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Total Design Count */}
+            {/* Total Design Count & Stock */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="space-y-2">
                 <Label htmlFor="totalDesigns" className="text-base font-medium">
@@ -263,6 +291,10 @@ const SeasonalCollectionPlanning = () => {
                 </div>
               </div>
               <div className="sm:ml-auto flex items-center gap-6">
+                <div className="text-center border-r pr-6">
+                  <p className="text-2xl font-bold text-primary">{totalStockPlanned.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Total Stock Planned</p>
+                </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-primary">{totalLaunchAllocated}</p>
                   <p className="text-xs text-muted-foreground">Allocated to Launches</p>
@@ -352,6 +384,9 @@ const SeasonalCollectionPlanning = () => {
                   {initialProductLines.filter(l => l.type === 'fashion').map((line) => {
                     const categoryTotal = getLineCategoryTotal(line.id);
                     const unallocated = lineAllocations[line.id] - categoryTotal;
+                    const designs = lineAllocations[line.id] || 0;
+                    const moq = lineMOQs[line.id] || 0;
+                    const lineStock = designs * moq;
                     
                     return (
                       <Collapsible
@@ -365,15 +400,37 @@ const SeasonalCollectionPlanning = () => {
                               <div className={cn('w-3 h-3 rounded-full', line.color)} />
                               <span className="font-medium text-sm">{line.name}</span>
                             </div>
-                            <Input
-                              type="number"
-                              value={lineAllocations[line.id]}
-                              onChange={(e) => handleInputChange(line.id, e.target.value)}
-                              className="w-20 h-8 text-right"
-                              min={0}
-                              max={totalDesignCount}
-                            />
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground">Designs:</span>
+                              <Input
+                                type="number"
+                                value={lineAllocations[line.id]}
+                                onChange={(e) => handleInputChange(line.id, e.target.value)}
+                                className="w-16 h-7 text-right text-sm"
+                                min={0}
+                                max={totalDesignCount}
+                              />
+                            </div>
                           </div>
+                          
+                          {/* MOQ and Stock Row */}
+                          <div className="flex items-center justify-between mb-2 p-2 rounded bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground">MOQ/Design:</span>
+                              <Input
+                                type="number"
+                                value={moq}
+                                onChange={(e) => handleMOQChange(line.id, parseInt(e.target.value) || 0)}
+                                className="w-16 h-6 text-right text-xs"
+                                min={0}
+                              />
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-semibold">{lineStock.toLocaleString()}</p>
+                              <p className="text-[9px] text-muted-foreground">Stock Units</p>
+                            </div>
+                          </div>
+                          
                           <Slider
                             value={[lineAllocations[line.id]]}
                             onValueChange={(values) => handleSliderChange(line.id, values)}
