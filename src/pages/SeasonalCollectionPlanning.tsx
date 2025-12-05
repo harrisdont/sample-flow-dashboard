@@ -68,17 +68,20 @@ interface LaunchAllocation {
   [launchId: string]: number;
 }
 
-// Default MOQ per design for each line
-const DEFAULT_MOQS: Record<string, number> = {
-  classic: 500,
-  cottage: 450,
-  woman: 600,
-  formals: 460,
-  ming: 340,
-  basic: 400,
-  'semi-bridals': 350,
-  leather: 0,
-  regen: 0,
+// Default MOQ per design for each category
+const DEFAULT_CATEGORY_MOQS: Record<string, number> = {
+  '1pc': 500,
+  '2pc': 450,
+  '3pc': 400,
+  'dupattas': 600,
+  'lowers': 350,
+  'shoes': 200,
+  'bags': 150,
+  'scrunchies': 300,
+  'jewellery': 250,
+  'parandas': 200,
+  'misc': 100,
+  'stationery': 150,
 };
 
 const initialProductLines: ProductLine[] = [
@@ -150,7 +153,7 @@ const SeasonalCollectionPlanning = () => {
   });
   const [selectedLine, setSelectedLine] = useState<ProductLine | null>(null);
   const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({});
-  const [lineMOQs, setLineMOQs] = useState<Record<string, number>>(() => ({ ...DEFAULT_MOQS }));
+  const [categoryMOQs, setCategoryMOQs] = useState<Record<string, number>>(() => ({ ...DEFAULT_CATEGORY_MOQS }));
 
   const totalLaunchAllocated = useMemo(() => {
     return Object.values(launchAllocations).reduce((sum, val) => sum + val, 0);
@@ -162,19 +165,32 @@ const SeasonalCollectionPlanning = () => {
     return Object.values(lineAllocations).reduce((sum, val) => sum + val, 0);
   }, [lineAllocations]);
 
-  // Calculate total stock planned (designs × MOQ for each line)
+  // Calculate total stock planned (designs × MOQ for each category)
   const totalStockPlanned = useMemo(() => {
     return initialProductLines.reduce((sum, line) => {
-      const designs = lineAllocations[line.id] || 0;
-      const moq = lineMOQs[line.id] || 0;
+      const categories = line.type === 'fashion' ? FASHION_CATEGORIES : ACCESSORIES_CATEGORIES;
+      return sum + categories.reduce((catSum, cat) => {
+        const designs = categoryAllocations[line.id]?.[cat] || 0;
+        const moq = categoryMOQs[cat] || 0;
+        return catSum + (designs * moq);
+      }, 0);
+    }, 0);
+  }, [categoryAllocations, categoryMOQs]);
+
+  // Calculate stock for a single line based on category allocations
+  const getLineStock = (lineId: string, lineType: 'fashion' | 'accessories') => {
+    const categories = lineType === 'fashion' ? FASHION_CATEGORIES : ACCESSORIES_CATEGORIES;
+    return categories.reduce((sum, cat) => {
+      const designs = categoryAllocations[lineId]?.[cat] || 0;
+      const moq = categoryMOQs[cat] || 0;
       return sum + (designs * moq);
     }, 0);
-  }, [lineAllocations, lineMOQs]);
+  };
 
-  const handleMOQChange = (lineId: string, value: number) => {
-    setLineMOQs(prev => ({
+  const handleCategoryMOQChange = (category: string, value: number) => {
+    setCategoryMOQs(prev => ({
       ...prev,
-      [lineId]: Math.max(0, value)
+      [category]: Math.max(0, value)
     }));
   };
 
@@ -385,12 +401,10 @@ const handleTotalChange = (value: string) => {
               <div className="mb-6">
                 <h4 className="text-sm font-medium text-muted-foreground mb-3">Fashion Lines</h4>
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {initialProductLines.filter(l => l.type === 'fashion').map((line) => {
+                {initialProductLines.filter(l => l.type === 'fashion').map((line) => {
                     const categoryTotal = getLineCategoryTotal(line.id);
                     const unallocated = lineAllocations[line.id] - categoryTotal;
-                    const designs = lineAllocations[line.id] || 0;
-                    const moq = lineMOQs[line.id] || 0;
-                    const lineStock = designs * moq;
+                    const lineStock = getLineStock(line.id, 'fashion');
                     
                     return (
                       <Collapsible
@@ -417,18 +431,9 @@ const handleTotalChange = (value: string) => {
                             </div>
                           </div>
                           
-                          {/* MOQ and Stock Row */}
+                          {/* Stock Summary Row */}
                           <div className="flex items-center justify-between mb-2 p-2 rounded bg-muted/50">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground">MOQ/Design:</span>
-                              <Input
-                                type="number"
-                                value={moq}
-                                onChange={(e) => handleMOQChange(line.id, parseInt(e.target.value) || 0)}
-                                className="w-16 h-6 text-right text-xs"
-                                min={0}
-                              />
-                            </div>
+                            <span className="text-[10px] text-muted-foreground">Line Stock Total</span>
                             <div className="text-right">
                               <p className="text-xs font-semibold">{lineStock.toLocaleString()}</p>
                               <p className="text-[9px] text-muted-foreground">Stock Units</p>
@@ -455,18 +460,37 @@ const handleTotalChange = (value: string) => {
                             {unallocated > 0 && (
                               <p className="text-xs text-amber-600">{unallocated} unassigned to categories</p>
                             )}
-                            {FASHION_CATEGORIES.map(cat => (
-                              <div key={cat} className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">{CATEGORY_LABELS[cat]}</span>
-                                <Input
-                                  type="number"
-                                  value={categoryAllocations[line.id]?.[cat] || 0}
-                                  onChange={(e) => handleCategoryChange(line.id, cat, parseInt(e.target.value) || 0)}
-                                  className="w-16 h-6 text-right text-xs"
-                                  min={0}
-                                />
-                              </div>
-                            ))}
+                            <div className="text-[10px] text-muted-foreground grid grid-cols-3 gap-1 pb-1 border-b mb-1">
+                              <span>Category</span>
+                              <span className="text-center">Designs</span>
+                              <span className="text-right">MOQ</span>
+                            </div>
+                            {FASHION_CATEGORIES.map(cat => {
+                              const catDesigns = categoryAllocations[line.id]?.[cat] || 0;
+                              const catMOQ = categoryMOQs[cat] || 0;
+                              return (
+                                <div key={cat} className="grid grid-cols-3 gap-1 items-center text-xs">
+                                  <span className="text-muted-foreground">{CATEGORY_LABELS[cat]}</span>
+                                  <Input
+                                    type="number"
+                                    value={catDesigns}
+                                    onChange={(e) => handleCategoryChange(line.id, cat, parseInt(e.target.value) || 0)}
+                                    className="w-full h-6 text-center text-xs"
+                                    min={0}
+                                  />
+                                  <Input
+                                    type="number"
+                                    value={catMOQ}
+                                    onChange={(e) => handleCategoryMOQChange(cat, parseInt(e.target.value) || 0)}
+                                    className="w-full h-6 text-right text-xs"
+                                    min={0}
+                                  />
+                                </div>
+                              );
+                            })}
+                            <div className="pt-1 border-t text-[10px] text-muted-foreground">
+                              Stock: {lineStock.toLocaleString()} units
+                            </div>
                           </CollapsibleContent>
                         </div>
                       </Collapsible>
@@ -482,6 +506,7 @@ const handleTotalChange = (value: string) => {
                   {initialProductLines.filter(l => l.type === 'accessories').map((line) => {
                     const categoryTotal = getLineCategoryTotal(line.id);
                     const unallocated = lineAllocations[line.id] - categoryTotal;
+                    const lineStock = getLineStock(line.id, 'accessories');
                     
                     return (
                       <Collapsible
@@ -505,6 +530,16 @@ const handleTotalChange = (value: string) => {
                               max={totalDesignCount}
                             />
                           </div>
+                          
+                          {/* Stock Summary Row */}
+                          <div className="flex items-center justify-between mb-2 p-2 rounded bg-muted/50">
+                            <span className="text-[10px] text-muted-foreground">Line Stock Total</span>
+                            <div className="text-right">
+                              <p className="text-xs font-semibold">{lineStock.toLocaleString()}</p>
+                              <p className="text-[9px] text-muted-foreground">Stock Units</p>
+                            </div>
+                          </div>
+                          
                           <Slider
                             value={[lineAllocations[line.id]]}
                             onValueChange={(values) => handleSliderChange(line.id, values)}
@@ -525,19 +560,36 @@ const handleTotalChange = (value: string) => {
                             {unallocated > 0 && (
                               <p className="text-xs text-amber-600">{unallocated} unassigned to categories</p>
                             )}
-                            <div className="grid grid-cols-2 gap-2">
-                              {ACCESSORIES_CATEGORIES.map(cat => (
-                                <div key={cat} className="flex items-center justify-between text-xs">
+                            <div className="text-[10px] text-muted-foreground grid grid-cols-3 gap-1 pb-1 border-b mb-1">
+                              <span>Category</span>
+                              <span className="text-center">Designs</span>
+                              <span className="text-right">MOQ</span>
+                            </div>
+                            {ACCESSORIES_CATEGORIES.map(cat => {
+                              const catDesigns = categoryAllocations[line.id]?.[cat] || 0;
+                              const catMOQ = categoryMOQs[cat] || 0;
+                              return (
+                                <div key={cat} className="grid grid-cols-3 gap-1 items-center text-xs">
                                   <span className="text-muted-foreground">{CATEGORY_LABELS[cat]}</span>
                                   <Input
                                     type="number"
-                                    value={categoryAllocations[line.id]?.[cat] || 0}
+                                    value={catDesigns}
                                     onChange={(e) => handleCategoryChange(line.id, cat, parseInt(e.target.value) || 0)}
-                                    className="w-14 h-6 text-right text-xs"
+                                    className="w-full h-6 text-center text-xs"
+                                    min={0}
+                                  />
+                                  <Input
+                                    type="number"
+                                    value={catMOQ}
+                                    onChange={(e) => handleCategoryMOQChange(cat, parseInt(e.target.value) || 0)}
+                                    className="w-full h-6 text-right text-xs"
                                     min={0}
                                   />
                                 </div>
-                              ))}
+                              );
+                            })}
+                            <div className="pt-1 border-t text-[10px] text-muted-foreground">
+                              Stock: {lineStock.toLocaleString()} units
                             </div>
                           </CollapsibleContent>
                         </div>
