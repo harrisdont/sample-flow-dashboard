@@ -382,6 +382,77 @@ const SeasonalCollectionPlanning = () => {
                 </div>
               </div>
             </div>
+        </CardContent>
+        </Card>
+
+        {/* Category Summary Dashboard */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-lg">Category Summary</CardTitle>
+            <p className="text-sm text-muted-foreground">Total designs by category across all lines</p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Fashion Categories Summary */}
+              <div>
+                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary" />
+                  Fashion Categories
+                </h4>
+                <div className="space-y-2">
+                  {FASHION_CATEGORIES.map(cat => {
+                    const total = initialProductLines
+                      .filter(l => l.type === 'fashion')
+                      .reduce((sum, line) => sum + (categoryAllocations[line.id]?.[cat] || 0), 0);
+                    return (
+                      <div key={cat} className="flex items-center justify-between p-2 rounded bg-muted/50">
+                        <span className="text-sm">{CATEGORY_LABELS[cat]}</span>
+                        <span className="font-semibold">{total}</span>
+                      </div>
+                    );
+                  })}
+                  <Separator className="my-2" />
+                  <div className="flex items-center justify-between p-2 rounded bg-primary/10">
+                    <span className="text-sm font-medium">Total Fashion</span>
+                    <span className="font-bold text-primary">
+                      {initialProductLines
+                        .filter(l => l.type === 'fashion')
+                        .reduce((sum, line) => sum + getLineCategoryTotal(line.id), 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Accessories Categories Summary */}
+              <div>
+                <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  Accessories Categories
+                </h4>
+                <div className="space-y-2">
+                  {ACCESSORIES_CATEGORIES.map(cat => {
+                    const total = initialProductLines
+                      .filter(l => l.type === 'accessories')
+                      .reduce((sum, line) => sum + (categoryAllocations[line.id]?.[cat] || 0), 0);
+                    return (
+                      <div key={cat} className="flex items-center justify-between p-2 rounded bg-muted/50">
+                        <span className="text-sm">{CATEGORY_LABELS[cat]}</span>
+                        <span className="font-semibold">{total}</span>
+                      </div>
+                    );
+                  })}
+                  <Separator className="my-2" />
+                  <div className="flex items-center justify-between p-2 rounded bg-amber-500/10">
+                    <span className="text-sm font-medium">Total Accessories</span>
+                    <span className="font-bold text-amber-600">
+                      {initialProductLines
+                        .filter(l => l.type === 'accessories')
+                        .reduce((sum, line) => sum + getLineCategoryTotal(line.id), 0)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
