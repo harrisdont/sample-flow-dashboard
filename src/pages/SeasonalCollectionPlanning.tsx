@@ -126,7 +126,7 @@ const SeasonalCollectionPlanning = () => {
   const navigate = useNavigate();
   const [seasonName] = useState<string>('SS26');
   const [totalDesignCount, setTotalDesignCount] = useState<number>(100);
-  const [launchAllocations, setLaunchAllocations] = useState<LaunchAllocation>(() => {
+  const [launchPercentages, setLaunchPercentages] = useState<LaunchAllocation>(() => {
     const initial: LaunchAllocation = {};
     SEASON_LAUNCHES.forEach(launch => {
       initial[launch.id] = 0;
@@ -155,11 +155,15 @@ const SeasonalCollectionPlanning = () => {
   const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({});
   const [categoryMOQs, setCategoryMOQs] = useState<Record<string, number>>(() => ({ ...DEFAULT_CATEGORY_MOQS }));
 
-  const totalLaunchAllocated = useMemo(() => {
-    return Object.values(launchAllocations).reduce((sum, val) => sum + val, 0);
-  }, [launchAllocations]);
+  const totalLaunchPercentage = useMemo(() => {
+    return Object.values(launchPercentages).reduce((sum, val) => sum + val, 0);
+  }, [launchPercentages]);
 
-  const launchRemaining = totalDesignCount - totalLaunchAllocated;
+  const totalLaunchAllocated = useMemo(() => {
+    return Math.round((totalLaunchPercentage / 100) * totalDesignCount);
+  }, [totalLaunchPercentage, totalDesignCount]);
+
+  const launchRemaining = 100 - totalLaunchPercentage;
 
   const totalAllocated = useMemo(() => {
     return Object.values(lineAllocations).reduce((sum, val) => sum + val, 0);
@@ -254,13 +258,18 @@ const handleTotalChange = (value: string) => {
     return (allocated / totalDesignCount) * 100;
   };
 
-  const handleLaunchAllocationChange = (launchId: string, value: number) => {
-    const maxAllowable = launchRemaining + (launchAllocations[launchId] || 0);
+  const handleLaunchPercentageChange = (launchId: string, value: number) => {
+    const maxAllowable = launchRemaining + (launchPercentages[launchId] || 0);
     const newValue = Math.max(0, Math.min(maxAllowable, value));
-    setLaunchAllocations(prev => ({
+    setLaunchPercentages(prev => ({
       ...prev,
       [launchId]: newValue
     }));
+  };
+
+  const getLaunchDesignCount = (launchId: string) => {
+    const percent = launchPercentages[launchId] || 0;
+    return Math.round((percent / 100) * totalDesignCount);
   };
 
   return (
@@ -316,12 +325,12 @@ const handleTotalChange = (value: string) => {
                   <p className="text-xs text-muted-foreground">Total Stock Planned</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{totalLaunchAllocated}</p>
+                  <p className="text-2xl font-bold text-primary">{totalLaunchPercentage}%</p>
                   <p className="text-xs text-muted-foreground">Allocated to Launches</p>
                 </div>
                 <div className="text-center">
                   <p className={`text-2xl font-bold ${launchRemaining < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {launchRemaining}
+                    {launchRemaining}%
                   </p>
                   <p className="text-xs text-muted-foreground">Unallocated</p>
                 </div>
@@ -341,8 +350,8 @@ const handleTotalChange = (value: string) => {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 {SEASON_LAUNCHES.map((launch) => {
-                  const allocated = launchAllocations[launch.id] || 0;
-                  const percent = totalDesignCount > 0 ? (allocated / totalDesignCount) * 100 : 0;
+                  const percent = launchPercentages[launch.id] || 0;
+                  const designCount = getLaunchDesignCount(launch.id);
                   
                   return (
                     <div key={launch.id} className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow">
@@ -350,14 +359,17 @@ const handleTotalChange = (value: string) => {
                         <h4 className="font-semibold text-sm">{launch.name}</h4>
                         <p className="text-[10px] text-muted-foreground mt-0.5">{launch.period}</p>
                       </div>
-                      <Input
-                        type="number"
-                        value={allocated}
-                        onChange={(e) => handleLaunchAllocationChange(launch.id, parseInt(e.target.value) || 0)}
-                        className="w-full text-center h-9 mb-2"
-                        min={0}
-                        max={totalDesignCount}
-                      />
+                      <div className="flex items-center justify-center gap-1 mb-2">
+                        <Input
+                          type="number"
+                          value={percent}
+                          onChange={(e) => handleLaunchPercentageChange(launch.id, parseInt(e.target.value) || 0)}
+                          className="w-16 text-center h-9"
+                          min={0}
+                          max={100}
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                      </div>
                       <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                         <div
                           className="h-full bg-primary transition-all duration-300"
@@ -365,7 +377,7 @@ const handleTotalChange = (value: string) => {
                         />
                       </div>
                       <p className="text-[10px] text-muted-foreground text-center mt-1">
-                        {percent.toFixed(0)}% of season
+                        {designCount} designs
                       </p>
                     </div>
                   );
