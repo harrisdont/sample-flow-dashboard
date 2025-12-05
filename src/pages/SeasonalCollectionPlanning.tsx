@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ArrowLeft, Settings2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import CapsuleCollectionPlanForm from '@/components/CapsuleCollectionPlanForm';
 
 interface ProductLine {
   id: string;
@@ -62,6 +64,7 @@ const SeasonalCollectionPlanning = () => {
     });
     return initial;
   });
+  const [selectedLine, setSelectedLine] = useState<ProductLine | null>(null);
 
   const totalAllocated = useMemo(() => {
     return Object.values(lineAllocations).reduce((sum, val) => sum + val, 0);
@@ -205,6 +208,7 @@ const SeasonalCollectionPlanning = () => {
               <Card
                 key={line.id}
                 className="hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => setSelectedLine(line)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -243,6 +247,23 @@ const SeasonalCollectionPlanning = () => {
             );
           })}
         </div>
+
+        {/* Capsule Collection Plan Sheet */}
+        <Sheet open={!!selectedLine} onOpenChange={(open) => !open && setSelectedLine(null)}>
+          <SheetContent className="sm:max-w-xl overflow-y-auto">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Capsule Collection Plan</SheetTitle>
+            </SheetHeader>
+            {selectedLine && (
+              <CapsuleCollectionPlanForm
+                lineName={selectedLine.name}
+                lineColor={selectedLine.color}
+                allocatedDesigns={lineAllocations[selectedLine.id]}
+                onClose={() => setSelectedLine(null)}
+              />
+            )}
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );
