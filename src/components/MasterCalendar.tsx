@@ -7,16 +7,15 @@ import {
 } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
 import { format, addDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
-import { Calendar, Flag, ArrowRight, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Calendar, Flag, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateBackwardsSchedule, getPhaseColor, Milestone } from '@/lib/schedulingEngine';
+import { useCapsuleStore } from '@/data/capsuleCollectionData';
 
 interface ProductLine {
   id: string;
   name: string;
   color: string;
-  inStoreDate?: Date;
-  selectedTechniques?: string[];
 }
 
 interface MasterCalendarProps {
@@ -31,9 +30,11 @@ const PHASE_LEGEND = [
 ];
 
 const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
+  const { getCapsuleByLine, capsules } = useCapsuleStore();
+
   const calendarRange = useMemo(() => {
     const start = startOfMonth(new Date());
-    const end = endOfMonth(addDays(start, 150)); // ~5 months to show full critical path
+    const end = endOfMonth(addDays(start, 150));
     return { start, end };
   }, []);
 
@@ -57,19 +58,40 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
     return Array.from(monthMap.values());
   }, [allDays]);
 
-  // Calculate full schedule for each line
+  // Calculate schedule for each line based on their capsule data
   const lineSchedules = useMemo(() => {
-    return productLines.map((line, index) => {
-      const inStoreDate = line.inStoreDate || addDays(new Date(), 90 + index * 15);
-      const techniques = line.selectedTechniques || 
-        (index % 3 === 0 ? ['embroidery', 'handwork'] : 
-         index % 2 === 0 ? ['multihead'] : ['block-printing']);
+    return productLines.map((line) => {
+      const capsule = getCapsuleByLine(line.id);
       
-      const schedule = calculateBackwardsSchedule(inStoreDate, techniques);
-      
-      return { line, schedule, inStoreDate };
+      if (capsule) {
+        // Use actual capsule data
+        const schedule = calculateBackwardsSchedule(
+          capsule.targetInStoreDate, 
+          capsule.selectedTechniques
+        );
+        return { 
+          line, 
+          schedule, 
+          inStoreDate: capsule.targetInStoreDate,
+          capsuleName: capsule.collectionName,
+          techniques: capsule.selectedTechniques,
+          hasCapsule: true,
+        };
+      } else {
+        // No capsule defined yet - show placeholder
+        const defaultDate = addDays(new Date(), 90);
+        const schedule = calculateBackwardsSchedule(defaultDate, []);
+        return { 
+          line, 
+          schedule, 
+          inStoreDate: defaultDate,
+          capsuleName: 'Not Configured',
+          techniques: [],
+          hasCapsule: false,
+        };
+      }
     });
-  }, [productLines]);
+  }, [productLines, capsules, getCapsuleByLine]);
 
   const totalDays = allDays.length;
 
@@ -115,7 +137,7 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
           <div className="min-w-[1000px]">
             {/* Month Headers */}
             <div className="flex border-b mb-2">
-              <div className="w-32 shrink-0" />
+              <div className="w-36 shrink-0" />
               <div className="flex-1 flex">
                 {months.map((month, idx) => (
                   <div
@@ -131,7 +153,7 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
 
             {/* Day markers */}
             <div className="flex border-b mb-4">
-              <div className="w-32 shrink-0" />
+              <div className="w-36 shrink-0" />
               <div className="flex-1 relative h-5">
                 {allDays.map((day, idx) => {
                   const showMarker = day.getDate() === 1 || day.getDate() === 15;
@@ -145,7 +167,6 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
                     </div>
                   ) : null;
                 })}
-                {/* Today marker */}
                 {allDays.findIndex(d => isToday(d)) !== -1 && (
                   <div
                     className="absolute top-0 bottom-0 w-0.5 bg-primary z-20"
@@ -157,107 +178,144 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
 
             {/* Timeline rows for each line */}
             <div className="space-y-2">
-              {lineSchedules.map(({ line, schedule, inStoreDate }) => (
+              {lineSchedules.map(({ line, schedule, inStoreDate, capsuleName, techniques, hasCapsule }) => (
                 <div key={line.id} className="flex items-start group">
-                  {/* Line name and summary */}
-                  <div className="w-32 shrink-0 pr-2">
+                  {/* Line name and capsule info */}
+                  <div className="w-36 shrink-0 pr-2">
                     <div className="flex items-center gap-2">
                       <div className={cn('w-3 h-3 rounded-full shrink-0', line.color)} />
                       <span className="text-sm font-medium truncate">{line.name}</span>
                     </div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 pl-5">
-                      {schedule.totalDays} days total
+                    <div className={cn(
+                      "text-[10px] mt-0.5 pl-5 truncate",
+                      hasCapsule ? "text-muted-foreground" : "text-muted-foreground/50 italic"
+                    )}>
+                      {capsuleName}
                     </div>
+                    {techniques.length > 0 && (
+                      <div className="text-[9px] text-muted-foreground/70 pl-5">
+                        {techniques.slice(0, 2).join(', ')}
+                        {techniques.length > 2 && ` +${techniques.length - 2}`}
+                      </div>
+                    )}
                   </div>
                   
                   {/* Timeline bar with all milestones */}
-                  <div className="flex-1 relative h-12 bg-muted/20 rounded">
-                    {/* Render each milestone as a bar */}
-                    {schedule.milestones.map((milestone, idx) => {
-                      const pos = getMilestonePosition(milestone);
-                      const phaseColor = getPhaseColor(milestone.phase);
-                      
-                      return (
-                        <HoverCard key={milestone.id} openDelay={100} closeDelay={50}>
-                          <HoverCardTrigger asChild>
-                            <div
-                              className={cn(
-                                'absolute top-2 h-4 rounded cursor-pointer transition-all',
-                                phaseColor,
-                                'opacity-75 hover:opacity-100 hover:h-5 hover:top-1.5 hover:shadow-md',
-                                'border border-white/20'
-                              )}
-                              style={{ left: pos.left, width: pos.width, minWidth: '4px' }}
-                            />
-                          </HoverCardTrigger>
-                          <HoverCardContent className="w-72 p-0" side="top">
-                            <div className="p-3 border-b bg-muted/50">
-                              <div className="flex items-center gap-2">
-                                <div className={cn('w-3 h-3 rounded', phaseColor)} />
-                                <span className="font-semibold text-sm">{milestone.label}</span>
-                                <Badge variant="outline" className="ml-auto text-[10px]">
-                                  {milestone.duration}d
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {format(milestone.startDate, 'MMM d')} - {format(milestone.endDate, 'MMM d, yyyy')}
-                              </p>
-                            </div>
-                            <div className="p-3">
-                              <p className="text-xs font-medium text-muted-foreground mb-2">
-                                Full Critical Path
-                              </p>
-                              <div className="space-y-1 max-h-48 overflow-y-auto">
-                                {schedule.milestones.map((m, i) => (
-                                  <div 
-                                    key={m.id} 
-                                    className={cn(
-                                      'flex items-center text-[10px] py-0.5 px-1 rounded',
-                                      m.id === milestone.id && 'bg-muted'
-                                    )}
-                                  >
-                                    <div className={cn('w-2 h-2 rounded mr-2', getPhaseColor(m.phase))} />
-                                    <span className="flex-1">{m.label}</span>
-                                    <span className="text-muted-foreground">
-                                      {format(m.startDate, 'MMM d')}
+                  <div className={cn(
+                    "flex-1 relative h-14 rounded",
+                    hasCapsule ? "bg-muted/20" : "bg-muted/10 border border-dashed border-muted-foreground/20"
+                  )}>
+                    {hasCapsule ? (
+                      <>
+                        {/* Render each milestone as a bar */}
+                        {schedule.milestones.map((milestone, idx) => {
+                          const pos = getMilestonePosition(milestone);
+                          const phaseColor = getPhaseColor(milestone.phase);
+                          
+                          return (
+                            <HoverCard key={milestone.id} openDelay={100} closeDelay={50}>
+                              <HoverCardTrigger asChild>
+                                <div
+                                  className={cn(
+                                    'absolute top-2 h-4 rounded cursor-pointer transition-all',
+                                    phaseColor,
+                                    'opacity-75 hover:opacity-100 hover:h-5 hover:top-1.5 hover:shadow-md',
+                                    'border border-white/20'
+                                  )}
+                                  style={{ left: pos.left, width: pos.width, minWidth: '4px' }}
+                                />
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-80 p-0" side="top">
+                                <div className="p-3 border-b bg-muted/50">
+                                  <div className="flex items-center gap-2">
+                                    <div className={cn('w-3 h-3 rounded-full', line.color)} />
+                                    <span className="font-semibold text-sm">{line.name}</span>
+                                    <span className="text-xs text-muted-foreground">- {capsuleName}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <div className={cn('w-2 h-2 rounded', phaseColor)} />
+                                    <span className="text-xs font-medium">{milestone.label}</span>
+                                    <Badge variant="outline" className="ml-auto text-[10px]">
+                                      {milestone.duration}d
+                                    </Badge>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {format(milestone.startDate, 'MMM d')} - {format(milestone.endDate, 'MMM d, yyyy')}
+                                  </p>
+                                </div>
+                                <div className="p-3">
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                                    Complete Process Breakdown for {capsuleName}
+                                  </p>
+                                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                                    {schedule.milestones.map((m, i) => (
+                                      <div 
+                                        key={m.id} 
+                                        className={cn(
+                                          'flex items-center text-[10px] py-0.5 px-1 rounded',
+                                          m.id === milestone.id && 'bg-muted'
+                                        )}
+                                      >
+                                        <div className={cn('w-2 h-2 rounded mr-2', getPhaseColor(m.phase))} />
+                                        <span className="flex-1">{m.label}</span>
+                                        <span className="text-muted-foreground">
+                                          {format(m.startDate, 'MMM d')}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {techniques.length > 0 && (
+                                    <div className="mt-2 pt-2 border-t">
+                                      <p className="text-[10px] text-muted-foreground mb-1">Selected Techniques:</p>
+                                      <div className="flex flex-wrap gap-1">
+                                        {techniques.map(t => (
+                                          <Badge key={t} variant="secondary" className="text-[9px]">
+                                            {t}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div className="mt-2 pt-2 border-t flex items-center justify-between text-xs">
+                                    <span className="text-muted-foreground">In-Store</span>
+                                    <span className="font-semibold text-green-600">
+                                      {format(inStoreDate, 'MMM d, yyyy')}
                                     </span>
                                   </div>
-                                ))}
-                              </div>
-                              <div className="mt-2 pt-2 border-t flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">In-Store</span>
-                                <span className="font-semibold text-green-600">
-                                  {format(inStoreDate, 'MMM d, yyyy')}
-                                </span>
-                              </div>
-                            </div>
-                          </HoverCardContent>
-                        </HoverCard>
-                      );
-                    })}
-                    
-                    {/* Key milestone flags */}
-                    <div
-                      className="absolute bottom-1 -translate-x-1/2"
-                      style={{ left: getDatePosition(schedule.fabricDesignStartDate) }}
-                      title={`Start: ${format(schedule.fabricDesignStartDate, 'MMM d')}`}
-                    >
-                      <Flag className="h-3 w-3 text-purple-500" />
-                    </div>
-                    <div
-                      className="absolute bottom-1 -translate-x-1/2"
-                      style={{ left: getDatePosition(schedule.productionStartDate) }}
-                      title={`Production: ${format(schedule.productionStartDate, 'MMM d')}`}
-                    >
-                      <Flag className="h-3 w-3 text-amber-500" />
-                    </div>
-                    <div
-                      className="absolute bottom-1 -translate-x-1/2"
-                      style={{ left: getDatePosition(inStoreDate) }}
-                      title={`In-Store: ${format(inStoreDate, 'MMM d')}`}
-                    >
-                      <Flag className="h-3 w-3 text-green-500" />
-                    </div>
+                                </div>
+                              </HoverCardContent>
+                            </HoverCard>
+                          );
+                        })}
+                        
+                        {/* Key milestone flags */}
+                        <div
+                          className="absolute bottom-1 -translate-x-1/2"
+                          style={{ left: getDatePosition(schedule.fabricDesignStartDate) }}
+                          title={`Start: ${format(schedule.fabricDesignStartDate, 'MMM d')}`}
+                        >
+                          <Flag className="h-3 w-3 text-purple-500" />
+                        </div>
+                        <div
+                          className="absolute bottom-1 -translate-x-1/2"
+                          style={{ left: getDatePosition(schedule.productionStartDate) }}
+                          title={`Production: ${format(schedule.productionStartDate, 'MMM d')}`}
+                        >
+                          <Flag className="h-3 w-3 text-amber-500" />
+                        </div>
+                        <div
+                          className="absolute bottom-1 -translate-x-1/2"
+                          style={{ left: getDatePosition(inStoreDate) }}
+                          title={`In-Store: ${format(inStoreDate, 'MMM d')}`}
+                        >
+                          <Flag className="h-3 w-3 text-green-500" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground/50 italic">
+                        Click line card to configure capsule collection
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -284,7 +342,7 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground mt-2 italic">
-                Hover over timeline segments to view detailed critical path breakdown from Fabric Design → In-Store Dispatch
+                Each line shows its unique process breakdown based on selected techniques. Hover for details.
               </p>
             </div>
           </div>

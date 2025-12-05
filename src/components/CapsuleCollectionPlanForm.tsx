@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,12 +28,16 @@ import {
   getComplexTechniques,
 } from '@/data/leadTimeSettings';
 import { calculateBackwardsSchedule, getPhaseColor } from '@/lib/schedulingEngine';
+import { useCapsuleStore, CapsuleCollection } from '@/data/capsuleCollectionData';
+import { toast } from 'sonner';
 
 interface CapsuleCollectionPlanFormProps {
+  lineId: string;
   lineName: string;
   lineColor: string;
   allocatedDesigns: number;
   onClose: () => void;
+  onSave?: () => void;
 }
 
 // Mock GTM strategies that would be fetched from Main Category Plan
@@ -45,24 +49,42 @@ const gtmStrategies = [
 ];
 
 const CapsuleCollectionPlanForm = ({
+  lineId,
   lineName,
   lineColor,
   allocatedDesigns,
   onClose,
+  onSave,
 }: CapsuleCollectionPlanFormProps) => {
-  const [collectionName, setCollectionName] = useState('');
-  const [selectedGtm, setSelectedGtm] = useState('');
-  const [targetDate, setTargetDate] = useState<Date | undefined>();
-  const [productMix, setProductMix] = useState({
+  const { getCapsuleByLine, addCapsule, updateCapsule } = useCapsuleStore();
+  const existingCapsule = getCapsuleByLine(lineId);
+
+  const [collectionName, setCollectionName] = useState(existingCapsule?.collectionName || '');
+  const [selectedGtm, setSelectedGtm] = useState(existingCapsule?.gtmStrategy || '');
+  const [targetDate, setTargetDate] = useState<Date | undefined>(existingCapsule?.targetInStoreDate);
+  const [productMix, setProductMix] = useState(existingCapsule?.productMix || {
     twoPiece: 0,
     onePiece: 0,
     threePiece: 0,
   });
   const [moodboards, setMoodboards] = useState<File[]>([]);
-  const [description, setDescription] = useState('');
-  const [fabrics, setFabrics] = useState<string[]>([]);
+  const [description, setDescription] = useState(existingCapsule?.description || '');
+  const [fabrics, setFabrics] = useState<string[]>(existingCapsule?.fabrics || []);
   const [newFabric, setNewFabric] = useState('');
-  const [selectedTechniques, setSelectedTechniques] = useState<string[]>([]);
+  const [selectedTechniques, setSelectedTechniques] = useState<string[]>(existingCapsule?.selectedTechniques || []);
+
+  // Load existing data when lineId changes
+  useEffect(() => {
+    if (existingCapsule) {
+      setCollectionName(existingCapsule.collectionName);
+      setSelectedGtm(existingCapsule.gtmStrategy);
+      setTargetDate(existingCapsule.targetInStoreDate);
+      setProductMix(existingCapsule.productMix);
+      setDescription(existingCapsule.description);
+      setFabrics(existingCapsule.fabrics);
+      setSelectedTechniques(existingCapsule.selectedTechniques);
+    }
+  }, [existingCapsule]);
 
   // Auto-fetch target date when GTM strategy is selected
   const handleGtmChange = (value: string) => {
@@ -104,16 +126,38 @@ const CapsuleCollectionPlanForm = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({
+    
+    if (!targetDate || !collectionName) {
+      toast.error('Please fill in collection name and target date');
+      return;
+    }
+
+    const capsuleId = existingCapsule?.id || `${lineId}-${Date.now()}`;
+    const capsuleData: CapsuleCollection = {
+      id: capsuleId,
+      lineId,
+      lineName,
       collectionName,
-      selectedGtm,
-      targetDate,
+      gtmStrategy: selectedGtm,
+      targetInStoreDate: targetDate,
       productMix,
-      moodboards,
-      description,
-      fabrics,
       selectedTechniques,
-    });
+      fabrics,
+      description,
+      moodboardCount: moodboards.length,
+      createdAt: existingCapsule?.createdAt || new Date(),
+      updatedAt: new Date(),
+    };
+
+    if (existingCapsule) {
+      updateCapsule(capsuleId, capsuleData);
+      toast.success('Collection plan updated');
+    } else {
+      addCapsule(capsuleData);
+      toast.success('Collection plan saved');
+    }
+
+    onSave?.();
     onClose();
   };
 

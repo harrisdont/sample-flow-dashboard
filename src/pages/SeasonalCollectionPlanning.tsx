@@ -11,7 +11,6 @@ import { ArrowLeft, Settings2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CapsuleCollectionPlanForm from '@/components/CapsuleCollectionPlanForm';
 import MasterCalendar from '@/components/MasterCalendar';
-import { addDays } from 'date-fns';
 
 interface ProductLine {
   id: string;
@@ -253,12 +252,10 @@ const SeasonalCollectionPlanning = () => {
         {/* Master Calendar */}
         <div className="mt-8">
           <MasterCalendar 
-            productLines={initialProductLines.map((line, index) => ({
+            productLines={initialProductLines.map((line) => ({
               id: line.id,
               name: line.name,
               color: line.color,
-              inStoreDate: addDays(new Date(), 60 + index * 12),
-              techniqueBuffer: index % 3 === 0 ? 10 : index % 2 === 0 ? 5 : 0,
             }))}
           />
         </div>
@@ -271,6 +268,7 @@ const SeasonalCollectionPlanning = () => {
             </SheetHeader>
             {selectedLine && (
               <CapsuleCollectionPlanForm
+                lineId={selectedLine.id}
                 lineName={selectedLine.name}
                 lineColor={selectedLine.color}
                 allocatedDesigns={lineAllocations[selectedLine.id]}
