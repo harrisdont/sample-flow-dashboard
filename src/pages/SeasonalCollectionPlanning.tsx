@@ -10,6 +10,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { ArrowLeft, Settings2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CapsuleCollectionPlanForm from '@/components/CapsuleCollectionPlanForm';
+import MasterCalendar from '@/components/MasterCalendar';
+import { addDays } from 'date-fns';
 
 interface ProductLine {
   id: string;
@@ -246,6 +248,19 @@ const SeasonalCollectionPlanning = () => {
               </Card>
             );
           })}
+        </div>
+
+        {/* Master Calendar */}
+        <div className="mt-8">
+          <MasterCalendar 
+            productLines={initialProductLines.map((line, index) => ({
+              id: line.id,
+              name: line.name,
+              color: line.color,
+              inStoreDate: addDays(new Date(), 60 + index * 12),
+              techniqueBuffer: index % 3 === 0 ? 10 : index % 2 === 0 ? 5 : 0,
+            }))}
+          />
         </div>
 
         {/* Capsule Collection Plan Sheet */}
