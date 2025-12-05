@@ -8,7 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Settings2, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Settings2, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CapsuleCollectionPlanForm from '@/components/CapsuleCollectionPlanForm';
 import MasterCalendar from '@/components/MasterCalendar';
@@ -21,6 +21,21 @@ interface ProductLine {
   status: 'planning' | 'in-progress' | 'completed';
   type: 'fashion' | 'accessories';
 }
+
+// Season launches breakdown
+interface Launch {
+  id: string;
+  name: string;
+  period: string;
+}
+
+const SEASON_LAUNCHES: Launch[] = [
+  { id: 'spring', name: 'Spring', period: 'Feb 15 - Mar 31' },
+  { id: 'choti-eid', name: 'Choti Eid', period: 'Apr 1 - Apr 20' },
+  { id: 'summer', name: 'Summer', period: 'May 1 - Jun 30' },
+  { id: 'barri-eid', name: 'Barri Eid', period: 'Jun 1 - Jun 15' },
+  { id: 'resort', name: 'Resort', period: 'Jul 1 - Aug 31' },
+];
 
 // Fashion category breakdown
 const FASHION_CATEGORIES = ['1pc', '2pc', '3pc', 'dupattas', 'lowers'] as const;
@@ -47,6 +62,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 interface CategoryAllocation {
   [category: string]: number;
+}
+
+interface LaunchAllocation {
+  [launchId: string]: number;
 }
 
 const initialProductLines: ProductLine[] = [
@@ -87,7 +106,15 @@ const getStatusLabel = (status: ProductLine['status']) => {
 
 const SeasonalCollectionPlanning = () => {
   const navigate = useNavigate();
+  const [seasonName] = useState<string>('SS26');
   const [totalDesignCount, setTotalDesignCount] = useState<number>(100);
+  const [launchAllocations, setLaunchAllocations] = useState<LaunchAllocation>(() => {
+    const initial: LaunchAllocation = {};
+    SEASON_LAUNCHES.forEach(launch => {
+      initial[launch.id] = 0;
+    });
+    return initial;
+  });
   const [lineAllocations, setLineAllocations] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
     initialProductLines.forEach(line => {
@@ -108,6 +135,12 @@ const SeasonalCollectionPlanning = () => {
   });
   const [selectedLine, setSelectedLine] = useState<ProductLine | null>(null);
   const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({});
+
+  const totalLaunchAllocated = useMemo(() => {
+    return Object.values(launchAllocations).reduce((sum, val) => sum + val, 0);
+  }, [launchAllocations]);
+
+  const launchRemaining = totalDesignCount - totalLaunchAllocated;
 
   const totalAllocated = useMemo(() => {
     return Object.values(lineAllocations).reduce((sum, val) => sum + val, 0);
@@ -173,6 +206,15 @@ const SeasonalCollectionPlanning = () => {
     return (allocated / totalDesignCount) * 100;
   };
 
+  const handleLaunchAllocationChange = (launchId: string, value: number) => {
+    const maxAllowable = launchRemaining + (launchAllocations[launchId] || 0);
+    const newValue = Math.max(0, Math.min(maxAllowable, value));
+    setLaunchAllocations(prev => ({
+      ...prev,
+      [launchId]: newValue
+    }));
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -197,6 +239,7 @@ const SeasonalCollectionPlanning = () => {
             <div className="flex items-center gap-2">
               <Settings2 className="h-5 w-5 text-primary" />
               <CardTitle>Main Category Plan</CardTitle>
+              <Badge variant="outline" className="ml-2">{seasonName}</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -204,7 +247,7 @@ const SeasonalCollectionPlanning = () => {
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="space-y-2">
                 <Label htmlFor="totalDesigns" className="text-base font-medium">
-                  Total Design Count for Season
+                  Total Design Count for Season ({seasonName})
                 </Label>
                 <div className="flex items-center gap-3">
                   <Input
@@ -221,15 +264,60 @@ const SeasonalCollectionPlanning = () => {
               </div>
               <div className="sm:ml-auto flex items-center gap-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">{totalAllocated}</p>
-                  <p className="text-xs text-muted-foreground">Allocated</p>
+                  <p className="text-2xl font-bold text-primary">{totalLaunchAllocated}</p>
+                  <p className="text-xs text-muted-foreground">Allocated to Launches</p>
                 </div>
                 <div className="text-center">
-                  <p className={`text-2xl font-bold ${remaining < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {remaining}
+                  <p className={`text-2xl font-bold ${launchRemaining < 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {launchRemaining}
                   </p>
-                  <p className="text-xs text-muted-foreground">Remaining</p>
+                  <p className="text-xs text-muted-foreground">Unallocated</p>
                 </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Season Launches */}
+            <div>
+              <Label className="text-base font-medium mb-4 block flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Season Launches
+              </Label>
+              <p className="text-sm text-muted-foreground mb-4">
+                Allocate total design count across different launches within {seasonName}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {SEASON_LAUNCHES.map((launch) => {
+                  const allocated = launchAllocations[launch.id] || 0;
+                  const percent = totalDesignCount > 0 ? (allocated / totalDesignCount) * 100 : 0;
+                  
+                  return (
+                    <div key={launch.id} className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow">
+                      <div className="text-center mb-3">
+                        <h4 className="font-semibold text-sm">{launch.name}</h4>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{launch.period}</p>
+                      </div>
+                      <Input
+                        type="number"
+                        value={allocated}
+                        onChange={(e) => handleLaunchAllocationChange(launch.id, parseInt(e.target.value) || 0)}
+                        className="w-full text-center h-9 mb-2"
+                        min={0}
+                        max={totalDesignCount}
+                      />
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary transition-all duration-300"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground text-center mt-1">
+                        {percent.toFixed(0)}% of season
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -237,9 +325,25 @@ const SeasonalCollectionPlanning = () => {
 
             {/* Line Distribution */}
             <div>
-              <Label className="text-base font-medium mb-4 block">
-                Distribute Designs by Line
-              </Label>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+                <Label className="text-base font-medium">
+                  Distribute Designs by Line
+                </Label>
+                <div className="sm:ml-auto flex items-center gap-4 text-sm">
+                  <div className="text-center">
+                    <p className="font-semibold text-primary">{totalAllocated}</p>
+                    <p className="text-[10px] text-muted-foreground">To Lines</p>
+                  </div>
+                  <span className="text-muted-foreground">/</span>
+                  <div className="text-center">
+                    <p className="font-semibold">{totalLaunchAllocated}</p>
+                    <p className="text-[10px] text-muted-foreground">From Launches</p>
+                  </div>
+                  {totalAllocated > totalLaunchAllocated && (
+                    <Badge variant="destructive" className="text-[10px]">Over-allocated</Badge>
+                  )}
+                </div>
+              </div>
               
               {/* Fashion Lines */}
               <div className="mb-6">
