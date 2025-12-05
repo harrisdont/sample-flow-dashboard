@@ -75,6 +75,8 @@ const DEFAULT_MOQS: Record<string, number> = {
   woman: 600,
   formals: 460,
   ming: 340,
+  basic: 400,
+  'semi-bridals': 350,
   leather: 0,
   regen: 0,
 };
@@ -85,6 +87,8 @@ const initialProductLines: ProductLine[] = [
   { id: 'formals', name: 'Formals', color: 'bg-fashion-formals', status: 'planning', type: 'fashion' },
   { id: 'woman', name: 'Woman', color: 'bg-fashion-woman', status: 'planning', type: 'fashion' },
   { id: 'ming', name: 'Ming', color: 'bg-fashion-ming', status: 'planning', type: 'fashion' },
+  { id: 'basic', name: 'Basic', color: 'bg-sky-500', status: 'planning', type: 'fashion' },
+  { id: 'semi-bridals', name: 'Semi Bridals', color: 'bg-rose-400', status: 'planning', type: 'fashion' },
   { id: 'leather', name: 'Leather', color: 'bg-amber-600', status: 'planning', type: 'accessories' },
   { id: 'regen', name: 'Regen', color: 'bg-emerald-600', status: 'planning', type: 'accessories' },
 ];
