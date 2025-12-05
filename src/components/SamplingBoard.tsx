@@ -1,9 +1,15 @@
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Sample } from '@/types/sample';
+import { Sample, ProcessStage } from '@/types/sample';
 import { cn } from '@/lib/utils';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Calendar } from 'lucide-react';
+import { 
+  calculateEstimatedCompletion, 
+  getDateStatus, 
+  formatShortDate,
+  getDaysRemaining 
+} from '@/lib/leadTimeCalculator';
 
 const lineColors: Record<string, string> = {
   woman: 'border-l-[hsl(var(--line-woman))]',
@@ -13,7 +19,7 @@ const lineColors: Record<string, string> = {
   ming: 'border-l-[hsl(var(--line-ming))]',
 };
 
-const stages = [
+const stages: { id: ProcessStage; label: string }[] = [
   { id: 'design', label: 'Design' },
   { id: 'pattern', label: 'Pattern' },
   { id: 'motif', label: 'Motif Dev' },
@@ -28,6 +34,17 @@ const stages = [
   { id: 'cottage-work', label: 'Cottage' },
   { id: 'hand-finishes', label: 'Hand Finish' },
 ];
+
+const allStageIds = stages.map(s => s.id);
+
+const getStatusColor = (status: ReturnType<typeof getDateStatus>) => {
+  switch (status) {
+    case 'overdue': return 'text-[hsl(var(--status-delayed))]';
+    case 'due-today': return 'text-[hsl(var(--status-pending))]';
+    case 'due-soon': return 'text-[hsl(var(--status-pending))]';
+    default: return 'text-muted-foreground';
+  }
+};
 
 interface SamplingBoardProps {
   samples: Sample[];
@@ -107,37 +124,59 @@ export const SamplingBoard = ({ samples, onSampleClick }: SamplingBoardProps) =>
                 </Badge>
               </div>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {stageSamples.map((sample) => (
-                  <div
-                    key={sample.id}
-                    draggable
-                    onDragStart={() => handleDragStart(sample)}
-                    onDragEnd={handleDragEnd}
-                    onClick={() => onSampleClick(sample)}
-                    className={cn(
-                      'relative p-3 rounded-lg border-2 cursor-move transition-all',
-                      'hover:scale-105 hover:shadow-lg',
-                      'flex flex-col items-center justify-center text-center',
-                      'min-h-[80px]',
-                      draggedSample?.id === sample.id && 'opacity-50',
-                      lineColors[sample.line].replace('border-l-', 'bg-')
-                    )}
-                    style={{
-                      background: `hsl(var(--line-${sample.line}) / 0.2)`,
-                      borderColor: `hsl(var(--line-${sample.line}))`,
-                    }}
-                  >
-                    <div className="absolute top-1 right-1">
-                      {sample.isDelayed && (
-                        <AlertTriangle className="h-3 w-3 text-[hsl(var(--status-delayed))]" />
+                {stageSamples.map((sample) => {
+                  const estimatedCompletion = calculateEstimatedCompletion(
+                    new Date(),
+                    sample.currentStage,
+                    allStageIds
+                  );
+                  const dateStatus = getDateStatus(sample.targetDate);
+                  const daysRemaining = getDaysRemaining(sample.targetDate);
+                  
+                  return (
+                    <div
+                      key={sample.id}
+                      draggable
+                      onDragStart={() => handleDragStart(sample)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => onSampleClick(sample)}
+                      className={cn(
+                        'relative p-3 rounded-lg border-2 cursor-move transition-all',
+                        'hover:scale-105 hover:shadow-lg',
+                        'flex flex-col items-center justify-center text-center',
+                        'min-h-[100px]',
+                        draggedSample?.id === sample.id && 'opacity-50',
+                        lineColors[sample.line].replace('border-l-', 'bg-')
                       )}
+                      style={{
+                        background: `hsl(var(--line-${sample.line}) / 0.2)`,
+                        borderColor: `hsl(var(--line-${sample.line}))`,
+                      }}
+                    >
+                      <div className="absolute top-1 right-1">
+                        {(sample.isDelayed || dateStatus === 'overdue') && (
+                          <AlertTriangle className="h-3 w-3 text-[hsl(var(--status-delayed))]" />
+                        )}
+                      </div>
+                      <div className="font-bold text-base">{sample.sampleNumber}</div>
+                      <div className={cn('text-xs mt-1 flex items-center gap-1', getStatusColor(dateStatus))}>
+                        <Calendar className="h-3 w-3" />
+                        {formatShortDate(sample.targetDate)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {daysRemaining < 0 
+                          ? `${Math.abs(daysRemaining)}d overdue`
+                          : daysRemaining === 0 
+                            ? 'Due today'
+                            : `${daysRemaining}d left`
+                        }
+                      </div>
+                      <div className="text-[10px] text-muted-foreground/70 mt-0.5">
+                        Est: {formatShortDate(estimatedCompletion)}
+                      </div>
                     </div>
-                    <div className="font-bold text-base">{sample.sampleNumber}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {new Date(sample.targetDate).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {stageSamples.length === 0 && (
                   <div className="text-xs text-muted-foreground text-center py-8 border-2 border-dashed border-border rounded-lg">
                     Drop here
