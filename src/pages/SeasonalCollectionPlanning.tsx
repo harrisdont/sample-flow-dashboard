@@ -169,6 +169,13 @@ const SeasonalCollectionPlanning = () => {
     return Object.values(lineAllocations).reduce((sum, val) => sum + val, 0);
   }, [lineAllocations]);
 
+  // Calculate average MOQ for scaling stock <-> designs
+  const averageMOQ = useMemo(() => {
+    const allCategories = [...FASHION_CATEGORIES, ...ACCESSORIES_CATEGORIES];
+    const total = allCategories.reduce((sum, cat) => sum + (categoryMOQs[cat] || 0), 0);
+    return total / allCategories.length;
+  }, [categoryMOQs]);
+
   // Calculate total stock planned (designs × MOQ for each category)
   const totalStockPlanned = useMemo(() => {
     return initialProductLines.reduce((sum, line) => {
@@ -200,9 +207,17 @@ const SeasonalCollectionPlanning = () => {
 
   const remaining = totalDesignCount - totalAllocated;
 
-const handleTotalChange = (value: string) => {
+  const handleTotalChange = (value: string) => {
     const num = parseInt(value) || 0;
     setTotalDesignCount(Math.max(0, Math.min(2000, num)));
+  };
+
+  const handleStockChange = (value: string) => {
+    const stock = parseInt(value) || 0;
+    if (averageMOQ > 0) {
+      const newDesignCount = Math.round(stock / averageMOQ);
+      setTotalDesignCount(Math.max(0, Math.min(2000, newDesignCount)));
+    }
   };
 
   const getLineCategoryTotal = (lineId: string) => {
@@ -321,8 +336,14 @@ const handleTotalChange = (value: string) => {
               </div>
               <div className="sm:ml-auto flex items-center gap-6">
                 <div className="text-center border-r pr-6">
-                  <p className="text-2xl font-bold text-primary">{totalStockPlanned.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">Total Stock Planned</p>
+                  <Input
+                    type="number"
+                    value={totalStockPlanned}
+                    onChange={(e) => handleStockChange(e.target.value)}
+                    className="w-32 text-center text-lg font-bold"
+                    min={0}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Total Stock Planned</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold text-primary">{totalLaunchPercentage}%</p>
