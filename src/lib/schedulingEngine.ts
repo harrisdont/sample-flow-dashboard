@@ -14,6 +14,7 @@ export interface Milestone {
 
 export interface ScheduleResult {
   inStoreDate: Date;
+  collectionReadyDate: Date; // The actual date when production is complete
   milestones: Milestone[];
   totalDays: number;
   criticalPathDays: number;
@@ -98,9 +99,14 @@ export function calculateBackwardsSchedule(
   const fabricDesignStartDate = milestones[0]?.startDate || subDays(inStoreDate, totalDuration);
   const productionMilestone = milestones.find(m => m.phase === 'production');
   const productionStartDate = productionMilestone?.startDate || subDays(inStoreDate, 30);
+  
+  // The collection ready date is when the last milestone ends (dispatch complete)
+  const lastMilestone = milestones[milestones.length - 1];
+  const collectionReadyDate = lastMilestone?.endDate || subDays(inStoreDate, 1);
 
   return {
     inStoreDate,
+    collectionReadyDate,
     milestones,
     totalDays: totalDuration,
     criticalPathDays: totalDuration,

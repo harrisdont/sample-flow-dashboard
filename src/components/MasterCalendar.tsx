@@ -178,7 +178,9 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
 
             {/* Timeline rows for each line */}
             <div className="space-y-2">
-              {lineSchedules.map(({ line, schedule, inStoreDate, capsuleName, techniques, hasCapsule }) => (
+              {lineSchedules.map(({ line, schedule, inStoreDate, capsuleName, techniques, hasCapsule }) => {
+                const collectionReadyDate = schedule.collectionReadyDate;
+                return (
                 <div key={line.id} className="flex items-start group">
                   {/* Line name and capsule info */}
                   <div className="w-36 shrink-0 pr-2">
@@ -276,11 +278,19 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
                                       </div>
                                     </div>
                                   )}
-                                  <div className="mt-2 pt-2 border-t flex items-center justify-between text-xs">
-                                    <span className="text-muted-foreground">In-Store</span>
-                                    <span className="font-semibold text-green-600">
-                                      {format(inStoreDate, 'MMM d, yyyy')}
-                                    </span>
+                                  <div className="mt-2 pt-2 border-t space-y-1 text-xs">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground">Collection Ready</span>
+                                      <span className="font-semibold text-amber-600">
+                                        {format(collectionReadyDate, 'MMM d, yyyy')}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-muted-foreground">Target In-Store</span>
+                                      <span className="font-semibold text-green-600">
+                                        {format(inStoreDate, 'MMM d, yyyy')}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
                               </HoverCardContent>
@@ -305,6 +315,13 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
                         </div>
                         <div
                           className="absolute bottom-1 -translate-x-1/2"
+                          style={{ left: getDatePosition(collectionReadyDate) }}
+                          title={`Ready: ${format(collectionReadyDate, 'MMM d')}`}
+                        >
+                          <CheckCircle2 className="h-3 w-3 text-orange-500" />
+                        </div>
+                        <div
+                          className="absolute bottom-1 -translate-x-1/2"
                           style={{ left: getDatePosition(inStoreDate) }}
                           title={`In-Store: ${format(inStoreDate, 'MMM d')}`}
                         >
@@ -318,7 +335,8 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
                     )}
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
 
             {/* Legend */}
@@ -337,8 +355,12 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
                   <span>Production Start</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-3 w-3 text-orange-500" />
+                  <span>Collection Ready</span>
+                </div>
+                <div className="flex items-center gap-2">
                   <Flag className="h-3 w-3 text-green-500" />
-                  <span>In-Store Date</span>
+                  <span>Target In-Store</span>
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground mt-2 italic">
