@@ -6,17 +6,21 @@ import { EJobCard } from '@/components/EJobCard';
 import { SamplingBoard } from '@/components/SamplingBoard';
 import { AddNewMenu } from '@/components/AddNewMenu';
 import { mockCollections, mockSamples, mockMetrics } from '@/data/mockData';
-import { Sample } from '@/types/sample';
+import { Collection, Sample } from '@/types/sample';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { LayoutDashboard, LayoutGrid, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
-type View = 'loading' | 'dashboard' | 'board' | 'ejob';
+type View = 'loading' | 'dashboard' | 'board' | 'ejob' | 'collection-detail';
 
 const Index = () => {
   const navigate = useNavigate();
   const [currentView, setCurrentView] = useState<View>('loading');
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
 
   const handleLoadingComplete = () => {
     setCurrentView('dashboard');
@@ -30,10 +34,9 @@ const Index = () => {
     setCurrentView('ejob');
   };
 
-  const handleCollectionClick = () => {
-    toast.info('Collection Details', {
-      description: 'Opening detailed collection view...',
-    });
+  const handleCollectionClick = (collection: Collection) => {
+    setSelectedCollection(collection);
+    setCurrentView('collection-detail');
   };
 
   const handleSampleClick = (sample: Sample) => {
@@ -58,6 +61,7 @@ const Index = () => {
   const handleBack = () => {
     setCurrentView('dashboard');
     setSelectedSample(null);
+    setSelectedCollection(null);
   };
 
   if (currentView === 'loading') {
@@ -72,6 +76,63 @@ const Index = () => {
         onApprove={handleApprove}
         onReject={handleReject}
       />
+    );
+  }
+
+  if (currentView === 'collection-detail' && selectedCollection) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <Button variant="ghost" onClick={handleBack} className="mb-6 gap-2">
+          ← Back to Dashboard
+        </Button>
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <h1 className="text-2xl font-bold">{selectedCollection.name}</h1>
+            <Badge variant="outline">Slot {selectedCollection.slot}</Badge>
+            <Badge 
+              className={cn(
+                selectedCollection.delay ? 'bg-[hsl(var(--status-delayed))]' : 'bg-[hsl(var(--status-in-progress))]',
+                'text-background'
+              )}
+            >
+              {selectedCollection.status}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Location</p>
+                <p className="font-medium">{selectedCollection.location}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Last Update</p>
+                <p className="font-medium">{selectedCollection.lastUpdate}</p>
+              </div>
+              {selectedCollection.delay && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Delay</p>
+                  <p className="font-medium text-[hsl(var(--status-delayed))]">{selectedCollection.delay} minutes</p>
+                </div>
+              )}
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Samples</p>
+                <p className="text-3xl font-bold">{selectedCollection.samplesCompleted}/{selectedCollection.totalSamples}</p>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${(selectedCollection.samplesCompleted / selectedCollection.totalSamples) * 100}%` }}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {Math.round((selectedCollection.samplesCompleted / selectedCollection.totalSamples) * 100)}% Complete
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
     );
   }
 

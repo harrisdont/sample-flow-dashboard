@@ -57,6 +57,8 @@ export interface Collection {
   location: string;
   lastUpdate: string;
   delay?: number;
+  totalSamples: number;
+  samplesCompleted: number;
 }
 
 export interface WorkloadMetrics {
