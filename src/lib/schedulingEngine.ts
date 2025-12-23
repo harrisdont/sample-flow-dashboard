@@ -73,7 +73,7 @@ export function calculateBackwardsSchedule(
 
   // Calculate milestones backwards from in-store date
   const milestones: Milestone[] = [];
-  let currentEndDate = subDays(inStoreDate, 1); // Day before in-store
+  let currentEndDate = inStoreDate; // End of last milestone aligns with in-store date
 
   // Reverse the phases to calculate backwards
   const reversedPhases = [...phases].reverse();
@@ -100,9 +100,9 @@ export function calculateBackwardsSchedule(
   const productionMilestone = milestones.find(m => m.phase === 'production');
   const productionStartDate = productionMilestone?.startDate || subDays(inStoreDate, 30);
   
-  // The collection ready date is when the last milestone ends (dispatch complete)
+  // The collection ready date is when the last milestone ends
   const lastMilestone = milestones[milestones.length - 1];
-  const collectionReadyDate = lastMilestone?.endDate || subDays(inStoreDate, 1);
+  const collectionReadyDate = lastMilestone?.endDate || inStoreDate;
 
   return {
     inStoreDate,

@@ -6,7 +6,7 @@ import {
   HoverCardTrigger 
 } from '@/components/ui/hover-card';
 import { Badge } from '@/components/ui/badge';
-import { format, addDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
+import { format, addDays, subDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
 import { Calendar, Flag, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateBackwardsSchedule, getPhaseColor, Milestone } from '@/lib/schedulingEngine';
@@ -33,10 +33,22 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
   const { getCapsuleByLine, capsules } = useCapsuleStore();
 
   const calendarRange = useMemo(() => {
-    const start = startOfMonth(new Date());
-    const end = endOfMonth(addDays(start, 150));
+    // Fit the calendar to the actual critical paths + a little padding
+    const schedules = productLines.map((line) => {
+      const capsule = getCapsuleByLine(line.id);
+      const inStore = capsule ? capsule.targetInStoreDate : addDays(new Date(), 90);
+      return calculateBackwardsSchedule(inStore, capsule?.selectedTechniques || []);
+    });
+
+    const minStart = schedules.reduce((min, s) => (s.fabricDesignStartDate < min ? s.fabricDesignStartDate : min), schedules[0].fabricDesignStartDate);
+    const maxEnd = schedules.reduce((max, s) => (s.inStoreDate > max ? s.inStoreDate : max), schedules[0].inStoreDate);
+
+    // Padding so labels/flags aren't cramped
+    const start = subDays(minStart, 14);
+    const end = addDays(maxEnd, 30);
+
     return { start, end };
-  }, []);
+  }, [productLines, capsules, getCapsuleByLine]);
 
   const allDays = useMemo(() => {
     return eachDayOfInterval({ start: calendarRange.start, end: calendarRange.end });
@@ -107,7 +119,9 @@ const MasterCalendar = ({ productLines }: MasterCalendarProps) => {
 
   const getDatePosition = (date: Date) => {
     const diff = differenceInDays(date, calendarRange.start);
-    return `${(diff / totalDays) * 100}%`;
+    const pct = (diff / totalDays) * 100;
+    const clamped = Math.max(0, Math.min(100, pct));
+    return `${clamped}%`;
   };
 
   return (
