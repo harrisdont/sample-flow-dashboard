@@ -153,7 +153,14 @@ const SeasonalCollectionPlanning = () => {
   });
   const [selectedLine, setSelectedLine] = useState<ProductLine | null>(null);
   const [expandedLines, setExpandedLines] = useState<Record<string, boolean>>({});
-  const [categoryMOQs, setCategoryMOQs] = useState<Record<string, number>>(() => ({ ...DEFAULT_CATEGORY_MOQS }));
+  // Line-specific category MOQs
+  const [lineCategoryMOQs, setLineCategoryMOQs] = useState<Record<string, Record<string, number>>>(() => {
+    const initial: Record<string, Record<string, number>> = {};
+    initialProductLines.forEach(line => {
+      initial[line.id] = { ...DEFAULT_CATEGORY_MOQS };
+    });
+    return initial;
+  });
 
   const totalLaunchPercentage = useMemo(() => {
     return Object.values(launchPercentages).reduce((sum, val) => sum + val, 0);
@@ -169,39 +176,49 @@ const SeasonalCollectionPlanning = () => {
     return Object.values(lineAllocations).reduce((sum, val) => sum + val, 0);
   }, [lineAllocations]);
 
-  // Calculate average MOQ for scaling stock <-> designs
+  // Calculate average MOQ for scaling stock <-> designs (using line-specific MOQs)
   const averageMOQ = useMemo(() => {
-    const allCategories = [...FASHION_CATEGORIES, ...ACCESSORIES_CATEGORIES];
-    const total = allCategories.reduce((sum, cat) => sum + (categoryMOQs[cat] || 0), 0);
-    return total / allCategories.length;
-  }, [categoryMOQs]);
+    let totalMOQ = 0;
+    let count = 0;
+    initialProductLines.forEach(line => {
+      const categories = line.type === 'fashion' ? FASHION_CATEGORIES : ACCESSORIES_CATEGORIES;
+      categories.forEach(cat => {
+        totalMOQ += lineCategoryMOQs[line.id]?.[cat] || DEFAULT_CATEGORY_MOQS[cat] || 0;
+        count++;
+      });
+    });
+    return count > 0 ? totalMOQ / count : 250;
+  }, [lineCategoryMOQs]);
 
-  // Calculate total stock planned (designs × MOQ for each category)
+  // Calculate total stock planned (designs × MOQ for each category per line)
   const totalStockPlanned = useMemo(() => {
     return initialProductLines.reduce((sum, line) => {
       const categories = line.type === 'fashion' ? FASHION_CATEGORIES : ACCESSORIES_CATEGORIES;
       return sum + categories.reduce((catSum, cat) => {
         const designs = categoryAllocations[line.id]?.[cat] || 0;
-        const moq = categoryMOQs[cat] || 0;
+        const moq = lineCategoryMOQs[line.id]?.[cat] || DEFAULT_CATEGORY_MOQS[cat] || 0;
         return catSum + (designs * moq);
       }, 0);
     }, 0);
-  }, [categoryAllocations, categoryMOQs]);
+  }, [categoryAllocations, lineCategoryMOQs]);
 
-  // Calculate stock for a single line based on category allocations
+  // Calculate stock for a single line based on category allocations with line-specific MOQs
   const getLineStock = (lineId: string, lineType: 'fashion' | 'accessories') => {
     const categories = lineType === 'fashion' ? FASHION_CATEGORIES : ACCESSORIES_CATEGORIES;
     return categories.reduce((sum, cat) => {
       const designs = categoryAllocations[lineId]?.[cat] || 0;
-      const moq = categoryMOQs[cat] || 0;
+      const moq = lineCategoryMOQs[lineId]?.[cat] || DEFAULT_CATEGORY_MOQS[cat] || 0;
       return sum + (designs * moq);
     }, 0);
   };
 
-  const handleCategoryMOQChange = (category: string, value: number) => {
-    setCategoryMOQs(prev => ({
+  const handleLineCategoryMOQChange = (lineId: string, category: string, value: number) => {
+    setLineCategoryMOQs(prev => ({
       ...prev,
-      [category]: Math.max(0, value)
+      [lineId]: {
+        ...prev[lineId],
+        [category]: Math.max(0, value)
+      }
     }));
   };
 
@@ -500,7 +517,7 @@ const SeasonalCollectionPlanning = () => {
                             </div>
                             {FASHION_CATEGORIES.map(cat => {
                               const catDesigns = categoryAllocations[line.id]?.[cat] || 0;
-                              const catMOQ = categoryMOQs[cat] || 0;
+                              const catMOQ = lineCategoryMOQs[line.id]?.[cat] || DEFAULT_CATEGORY_MOQS[cat] || 0;
                               return (
                                 <div key={cat} className="grid grid-cols-3 gap-1 items-center text-xs">
                                   <span className="text-muted-foreground">{CATEGORY_LABELS[cat]}</span>
@@ -514,7 +531,7 @@ const SeasonalCollectionPlanning = () => {
                                   <Input
                                     type="number"
                                     value={catMOQ}
-                                    onChange={(e) => handleCategoryMOQChange(cat, parseInt(e.target.value) || 0)}
+                                    onChange={(e) => handleLineCategoryMOQChange(line.id, cat, parseInt(e.target.value) || 0)}
                                     className="w-full h-6 text-right text-xs"
                                     min={0}
                                   />
@@ -600,7 +617,7 @@ const SeasonalCollectionPlanning = () => {
                             </div>
                             {ACCESSORIES_CATEGORIES.map(cat => {
                               const catDesigns = categoryAllocations[line.id]?.[cat] || 0;
-                              const catMOQ = categoryMOQs[cat] || 0;
+                              const catMOQ = lineCategoryMOQs[line.id]?.[cat] || DEFAULT_CATEGORY_MOQS[cat] || 0;
                               return (
                                 <div key={cat} className="grid grid-cols-3 gap-1 items-center text-xs">
                                   <span className="text-muted-foreground">{CATEGORY_LABELS[cat]}</span>
@@ -614,7 +631,7 @@ const SeasonalCollectionPlanning = () => {
                                   <Input
                                     type="number"
                                     value={catMOQ}
-                                    onChange={(e) => handleCategoryMOQChange(cat, parseInt(e.target.value) || 0)}
+                                    onChange={(e) => handleLineCategoryMOQChange(line.id, cat, parseInt(e.target.value) || 0)}
                                     className="w-full h-6 text-right text-xs"
                                     min={0}
                                   />
