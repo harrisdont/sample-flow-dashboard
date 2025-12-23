@@ -7,6 +7,8 @@ export const mockCollections: Collection[] = [
     status: 'In Transit',
     location: 'Adda Room 1',
     lastUpdate: '2 hours ago',
+    totalSamples: 24,
+    samplesCompleted: 18,
   },
   {
     name: 'Cottage Autumn Festive',
@@ -15,6 +17,8 @@ export const mockCollections: Collection[] = [
     location: 'Warehouse Archiving',
     lastUpdate: '30 mins ago',
     delay: 45,
+    totalSamples: 32,
+    samplesCompleted: 12,
   },
   {
     name: 'Woman Spring Luxe',
@@ -22,6 +26,8 @@ export const mockCollections: Collection[] = [
     status: 'Multihead End',
     location: 'Director Office',
     lastUpdate: '5 mins ago',
+    totalSamples: 16,
+    samplesCompleted: 16,
   },
 ];
 
