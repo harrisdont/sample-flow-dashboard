@@ -24,6 +24,7 @@ import { TechpackPreview } from '@/components/TechpackPreview';
 import { useCapsuleStore, CategoryDesigns } from '@/data/capsuleCollectionData';
 import { useDesignStore, Design } from '@/data/designStore';
 import { useFabricStore, FabricEntry, PrintClassification, IroningInstruction } from '@/data/fabricStore';
+import { useSilhouetteStore } from '@/data/silhouetteStore';
 import {
   silhouetteLibrary,
   necklineLibrary,
@@ -32,7 +33,7 @@ import {
   fabricLibrary,
 } from '@/data/libraryData';
 import { toast } from 'sonner';
-import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle, CheckCircle2, IndianRupee, Calculator } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -57,7 +58,8 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const capsules = useCapsuleStore((state) => state.capsules);
   const capsuleList = Object.values(capsules);
   const { addDesign, getDesignCountByCategory } = useDesignStore();
-  const { getFabricsByCollection } = useFabricStore();
+  const { getFabricsByCollection, getFabricById } = useFabricStore();
+  const { getApprovedSilhouettes, calculateSilhouetteCost, getSilhouetteById } = useSilhouetteStore();
   
   const [step, setStep] = useState<Step>(1);
   const [selectedCollection, setSelectedCollection] = useState('');
@@ -78,11 +80,31 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const techpackRef = useRef<HTMLDivElement>(null);
 
+  // Get approved silhouettes from the store
+  const approvedSilhouettes = getApprovedSilhouettes();
+
   // Get inducted fabrics for selected collection
   const inductedFabrics = useMemo(() => {
     if (!selectedCollection) return [];
     return getFabricsByCollection(selectedCollection).filter(f => f.status === 'inducted');
   }, [selectedCollection, getFabricsByCollection]);
+
+  // Calculate cost when silhouette and fabric are selected
+  const selectedSilhouetteData = getSilhouetteById(selectedSilhouette);
+  const costCalculation = useMemo(() => {
+    if (!selectedSilhouette || !selectedInductedFabric?.technicalSpecs?.costPerMeter) return null;
+    return calculateSilhouetteCost(selectedSilhouette, selectedInductedFabric.technicalSpecs.costPerMeter);
+  }, [selectedSilhouette, selectedInductedFabric, calculateSilhouetteCost]);
+
+  // Fallback: Calculate cost using the silhouette's linked fabric if no inducted fabric is selected
+  const linkedFabricCost = useMemo(() => {
+    if (!selectedSilhouetteData?.linkedFabricId || selectedInductedFabric) return null;
+    const linkedFabric = getFabricById(selectedSilhouetteData.linkedFabricId);
+    if (!linkedFabric?.technicalSpecs?.costPerMeter) return null;
+    return calculateSilhouetteCost(selectedSilhouette, linkedFabric.technicalSpecs.costPerMeter);
+  }, [selectedSilhouetteData, selectedInductedFabric, getFabricById, calculateSilhouetteCost, selectedSilhouette]);
+
+  const displayCost = costCalculation || linkedFabricCost;
 
   // Get current collection's category limits and usage
   const selectedCapsule = capsules[selectedCollection];
@@ -263,7 +285,14 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
     setErrors({});
   };
 
-  const selectedSilhouetteData = silhouetteLibrary.find(s => s.id === selectedSilhouette);
+  // For TechpackPreview compatibility with library format
+  const selectedSilhouetteForPreview = selectedSilhouetteData ? {
+    id: selectedSilhouetteData.id,
+    code: selectedSilhouetteData.code,
+    name: selectedSilhouetteData.name,
+    category: selectedSilhouetteData.category,
+    technicalDrawing: selectedSilhouetteData.technicalDrawing,
+  } : silhouetteLibrary.find(s => s.id === selectedSilhouette);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -381,66 +410,148 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
               )}
 
               <div className="space-y-2">
-                <Label>Silhouette *</Label>
+                <Label>Silhouette * (Approved Only)</Label>
+                <p className="text-sm text-muted-foreground">
+                  Select from approved silhouettes with production-ready costing
+                </p>
                 {errors.silhouette && (
                   <Alert variant="destructive" className="py-2">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription className="text-sm">{errors.silhouette}</AlertDescription>
                   </Alert>
                 )}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {silhouetteLibrary.map((silhouette) => (
-                    <button
-                      key={silhouette.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedSilhouette(silhouette.id);
-                        setErrors((prev) => ({ ...prev, silhouette: '' }));
-                      }}
-                      className={`relative p-4 border rounded-lg transition-all hover:border-primary ${
-                        selectedSilhouette === silhouette.id
-                          ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                          : 'border-border bg-card/50'
-                      }`}
-                    >
-                      <div className="aspect-square mb-3 flex items-center justify-center bg-background/50 rounded">
-                        {silhouette.technicalDrawing && (
-                          <img
-                            src={silhouette.technicalDrawing}
-                            alt={silhouette.name}
-                            className="w-full h-full object-contain p-2"
-                          />
-                        )}
-                      </div>
-                      <div className="text-center">
-                        <p className="text-xs font-mono text-muted-foreground mb-1">
-                          {silhouette.code}
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {silhouette.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground capitalize mt-1">
-                          {silhouette.category}
-                        </p>
-                      </div>
-                      {selectedSilhouette === silhouette.id && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                          <svg
-                            className="w-3 h-3 text-primary-foreground"
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path d="M5 13l4 4L19 7" />
-                          </svg>
+                {approvedSilhouettes.length === 0 ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      No approved silhouettes available. Please approve silhouettes in the Sampling module first.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {approvedSilhouettes.map((silhouette) => (
+                      <button
+                        key={silhouette.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSilhouette(silhouette.id);
+                          setErrors((prev) => ({ ...prev, silhouette: '' }));
+                        }}
+                        className={`relative p-4 border rounded-lg transition-all hover:border-primary ${
+                          selectedSilhouette === silhouette.id
+                            ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                            : 'border-border bg-card/50'
+                        }`}
+                      >
+                        <div className="aspect-square mb-3 flex items-center justify-center bg-background/50 rounded">
+                          {silhouette.technicalDrawing && (
+                            <img
+                              src={silhouette.technicalDrawing}
+                              alt={silhouette.name}
+                              className="w-full h-full object-contain p-2"
+                            />
+                          )}
                         </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                        <div className="text-center">
+                          <p className="text-xs font-mono text-muted-foreground mb-1">
+                            {silhouette.code}
+                          </p>
+                          <p className="text-sm font-medium text-foreground">
+                            {silhouette.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground capitalize mt-1">
+                            {silhouette.category}
+                          </p>
+                          {silhouette.fabricConsumption && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {silhouette.fabricConsumption}m fabric
+                            </p>
+                          )}
+                        </div>
+                        {selectedSilhouette === silhouette.id && (
+                          <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
+                            <svg
+                              className="w-3 h-3 text-primary-foreground"
+                              fill="none"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Cost Display Panel */}
+                {selectedSilhouette && selectedSilhouetteData && (
+                  <div className="mt-4 p-4 border border-border rounded-lg bg-card/50 space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Calculator className="h-4 w-4 text-primary" />
+                      <span className="font-medium text-sm">Cost Breakdown</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Fabric Consumption</p>
+                        <p className="font-medium">{selectedSilhouetteData.fabricConsumption || '–'} meters</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Stitching Cost</p>
+                        <p className="font-medium flex items-center">
+                          <IndianRupee className="h-3 w-3" />
+                          {selectedSilhouetteData.stitchingCost?.toLocaleString() || '–'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {displayCost ? (
+                      <div className="pt-3 border-t border-border space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Fabric Cost</span>
+                          <span className="font-medium flex items-center">
+                            <IndianRupee className="h-3 w-3" />
+                            {displayCost.fabricCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-muted-foreground">Stitching Cost</span>
+                          <span className="font-medium flex items-center">
+                            <IndianRupee className="h-3 w-3" />
+                            {displayCost.stitchingCost.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-border">
+                          <span className="text-sm font-medium">Total Cost</span>
+                          <span className="font-bold flex items-center text-primary">
+                            <IndianRupee className="h-3.5 w-3.5" />
+                            {displayCost.totalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center bg-primary/10 p-2 rounded-md">
+                          <span className="text-sm font-medium">Predicted Selling Price (3.2x)</span>
+                          <span className="font-bold flex items-center text-primary">
+                            <IndianRupee className="h-3.5 w-3.5" />
+                            {displayCost.predictedSellingPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="pt-3 border-t border-border">
+                        <p className="text-xs text-muted-foreground italic">
+                          {selectedInductedFabric 
+                            ? "Cost data unavailable for this silhouette" 
+                            : "Select an inducted fabric below to see full cost calculation"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
