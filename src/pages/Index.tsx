@@ -140,17 +140,8 @@ const Index = () => {
       <MainNav>
         <AddNewMenu />
         <Button
-          variant={currentView === 'dashboard' ? 'default' : 'outline'}
-          onClick={() => setCurrentView('dashboard')}
-          size="sm"
-          className="gap-2"
-        >
-          <LayoutDashboard className="h-4 w-4" />
-          Dashboard
-        </Button>
-        <Button
           variant={currentView === 'board' ? 'default' : 'outline'}
-          onClick={() => setCurrentView('board')}
+          onClick={() => setCurrentView(currentView === 'board' ? 'dashboard' : 'board')}
           size="sm"
           className="gap-2"
         >
