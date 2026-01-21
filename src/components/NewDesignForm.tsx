@@ -885,6 +885,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                   value={shirtConfig}
                   onChange={setShirtConfig}
                   error={errors.shirtSilhouette || errors.shirtFabric}
+                  collectionId={selectedCollection}
                 />
               )}
 
@@ -898,6 +899,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     value={shirtConfig}
                     onChange={setShirtConfig}
                     error={errors.shirtSilhouette}
+                    collectionId={selectedCollection}
                   />
                   
                   {selectedTwoPieceType === 'shirt-lowers' && (
@@ -908,6 +910,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                       value={lowersConfig}
                       onChange={setLowersConfig}
                       error={errors.lowersSilhouette}
+                      collectionId={selectedCollection}
                     />
                   )}
                   
@@ -919,6 +922,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                       value={dupattaConfig}
                       onChange={setDupattaConfig}
                       error={errors.dupattaSilhouette}
+                      collectionId={selectedCollection}
                     />
                   )}
                 </div>
@@ -934,6 +938,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     value={shirtConfig}
                     onChange={setShirtConfig}
                     error={errors.shirtSilhouette}
+                    collectionId={selectedCollection}
                   />
                   <ComponentSelector
                     componentType="lowers"
@@ -942,6 +947,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     value={lowersConfig}
                     onChange={setLowersConfig}
                     error={errors.lowersSilhouette}
+                    collectionId={selectedCollection}
                   />
                   <ComponentSelector
                     componentType="dupatta"
@@ -950,6 +956,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     value={dupattaConfig}
                     onChange={setDupattaConfig}
                     error={errors.dupattaSilhouette}
+                    collectionId={selectedCollection}
                   />
                 </div>
               )}
@@ -962,6 +969,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                   availableFabrics={fabricsByComponent.dupatta.length > 0 ? fabricsByComponent.dupatta : collectionFabrics}
                   value={dupattaConfig}
                   onChange={setDupattaConfig}
+                  collectionId={selectedCollection}
                 />
               )}
 
@@ -973,6 +981,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                   availableFabrics={fabricsByComponent.lowers.length > 0 ? fabricsByComponent.lowers : collectionFabrics}
                   value={lowersConfig}
                   onChange={setLowersConfig}
+                  collectionId={selectedCollection}
                 />
               )}
 
@@ -985,6 +994,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     availableFabrics={fabricsByComponent.lehenga.length > 0 ? fabricsByComponent.lehenga : collectionFabrics}
                     value={lehengaConfig}
                     onChange={setLehengaConfig}
+                    collectionId={selectedCollection}
                   />
                   <ComponentSelector
                     componentType="choli"
@@ -992,6 +1002,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     availableFabrics={fabricsByComponent.choli.length > 0 ? fabricsByComponent.choli : collectionFabrics}
                     value={choliConfig}
                     onChange={setCholiConfig}
+                    collectionId={selectedCollection}
                   />
                   <ComponentSelector
                     componentType="dupatta"
@@ -999,6 +1010,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     availableFabrics={fabricsByComponent.dupatta.length > 0 ? fabricsByComponent.dupatta : collectionFabrics}
                     value={dupattaConfig}
                     onChange={setDupattaConfig}
+                    collectionId={selectedCollection}
                   />
                 </div>
               )}
@@ -1012,6 +1024,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     availableFabrics={fabricsByComponent.saree.length > 0 ? fabricsByComponent.saree : collectionFabrics}
                     value={sareeConfig}
                     onChange={setSareeConfig}
+                    collectionId={selectedCollection}
                   />
                   <ComponentSelector
                     componentType="blouse"
@@ -1019,6 +1032,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     availableFabrics={fabricsByComponent.blouse.length > 0 ? fabricsByComponent.blouse : collectionFabrics}
                     value={blouseConfig}
                     onChange={setBlouseConfig}
+                    collectionId={selectedCollection}
                   />
                 </div>
               )}

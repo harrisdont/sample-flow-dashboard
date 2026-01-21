@@ -48,6 +48,7 @@ import { useColorPaletteStore } from '@/data/colorPaletteStore';
 interface FabricInductionFormProps {
   fabric?: FabricEntry;
   onClose: () => void;
+  defaultCollectionId?: string;
 }
 
 const CONSTRUCTION_OPTIONS = [
@@ -62,7 +63,7 @@ const CONSTRUCTION_OPTIONS = [
 
 const WIDTH_OPTIONS = ['36 inches', '44 inches', '52 inches', '58 inches', '60 inches'];
 
-export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProps) => {
+export const FabricInductionForm = ({ fabric, onClose, defaultCollectionId }: FabricInductionFormProps) => {
   const { capsules } = useCapsuleStore();
   const { 
     addFabricEntry, 
@@ -77,8 +78,8 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
   const isEditing = !!fabric;
   const isReadyForInduction = fabric?.status === 'ready-for-induction';
   
-  // Form state
-  const [selectedCollection, setSelectedCollection] = useState(fabric?.collectionId || '');
+  // Form state - use defaultCollectionId if provided
+  const [selectedCollection, setSelectedCollection] = useState(fabric?.collectionId || defaultCollectionId || '');
   const [componentType, setComponentType] = useState<ComponentType>(fabric?.componentType || 'shirt');
   const [fabricName, setFabricName] = useState(fabric?.fabricName || '');
   const [fabricComposition, setFabricComposition] = useState(fabric?.fabricComposition || '');
