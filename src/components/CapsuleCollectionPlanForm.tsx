@@ -20,7 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, Upload, X, Plus, AlertTriangle, Clock, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { CalendarIcon, Upload, X, Plus, AlertTriangle, Clock, ArrowRight, CheckCircle2, Link as LinkIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { 
@@ -28,7 +28,7 @@ import {
   getComplexTechniques,
 } from '@/data/leadTimeSettings';
 import { calculateBackwardsSchedule, getPhaseColor } from '@/lib/schedulingEngine';
-import { useCapsuleStore, CapsuleCollection } from '@/data/capsuleCollectionData';
+import { useCapsuleStore, CapsuleCollection, CategoryDesigns } from '@/data/capsuleCollectionData';
 import { toast } from 'sonner';
 
 interface CapsuleCollectionPlanFormProps {
@@ -47,6 +47,15 @@ const gtmStrategies = [
   { id: 'festive-season', name: 'Festive Season 2025', targetDate: new Date(2025, 9, 10) },
   { id: 'winter-release', name: 'Winter Release 2025', targetDate: new Date(2025, 11, 1) },
 ];
+
+// Category labels
+const CATEGORY_LABELS: Record<keyof CategoryDesigns, string> = {
+  onePiece: '1-Piece',
+  twoPiece: '2-Piece',
+  threePiece: '3-Piece',
+  dupattas: 'Dupattas',
+  lowers: 'Lowers',
+};
 
 const CapsuleCollectionPlanForm = ({
   lineId,
@@ -67,7 +76,15 @@ const CapsuleCollectionPlanForm = ({
     onePiece: 0,
     threePiece: 0,
   });
+  const [categoryDesigns, setCategoryDesigns] = useState<CategoryDesigns>(existingCapsule?.categoryDesigns || {
+    onePiece: 0,
+    twoPiece: 0,
+    threePiece: 0,
+    dupattas: 0,
+    lowers: 0,
+  });
   const [moodboards, setMoodboards] = useState<File[]>([]);
+  const [pinterestBoardLink, setPinterestBoardLink] = useState(existingCapsule?.pinterestBoardLink || '');
   const [description, setDescription] = useState(existingCapsule?.description || '');
   const [fabrics, setFabrics] = useState<string[]>(existingCapsule?.fabrics || []);
   const [newFabric, setNewFabric] = useState('');
@@ -80,6 +97,8 @@ const CapsuleCollectionPlanForm = ({
       setSelectedGtm(existingCapsule.gtmStrategy);
       setTargetDate(existingCapsule.targetInStoreDate);
       setProductMix(existingCapsule.productMix);
+      setCategoryDesigns(existingCapsule.categoryDesigns);
+      setPinterestBoardLink(existingCapsule.pinterestBoardLink);
       setDescription(existingCapsule.description);
       setFabrics(existingCapsule.fabrics);
       setSelectedTechniques(existingCapsule.selectedTechniques);
@@ -124,6 +143,13 @@ const CapsuleCollectionPlanForm = ({
     );
   };
 
+  const handleCategoryDesignChange = (category: keyof CategoryDesigns, value: number) => {
+    setCategoryDesigns(prev => ({
+      ...prev,
+      [category]: Math.max(0, value),
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -141,10 +167,12 @@ const CapsuleCollectionPlanForm = ({
       gtmStrategy: selectedGtm,
       targetInStoreDate: targetDate,
       productMix,
+      categoryDesigns,
       selectedTechniques,
       fabrics,
       description,
-      moodboardCount: moodboards.length,
+      moodboardCount: moodboards.length + (existingCapsule?.moodboardCount || 0),
+      pinterestBoardLink,
       createdAt: existingCapsule?.createdAt || new Date(),
       updatedAt: new Date(),
     };
@@ -161,7 +189,7 @@ const CapsuleCollectionPlanForm = ({
     onClose();
   };
 
-  const totalPieces = productMix.twoPiece + productMix.onePiece + productMix.threePiece;
+  const totalCategoryDesigns = Object.values(categoryDesigns).reduce((sum, val) => sum + val, 0);
 
   // Calculate complete schedule with backwards scheduling
   const schedule = useMemo(() => {
@@ -244,42 +272,37 @@ const CapsuleCollectionPlanForm = ({
         </div>
       </div>
 
-      {/* Product Mix */}
+      {/* Category Design Counts */}
       <div className="space-y-3">
-        <Label>Product Mix</Label>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <Label htmlFor="twoPiece" className="text-xs text-muted-foreground">2-Piece</Label>
-            <Input
-              id="twoPiece"
-              type="number"
-              min={0}
-              value={productMix.twoPiece}
-              onChange={(e) => setProductMix(prev => ({ ...prev, twoPiece: parseInt(e.target.value) || 0 }))}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="onePiece" className="text-xs text-muted-foreground">1-Piece</Label>
-            <Input
-              id="onePiece"
-              type="number"
-              min={0}
-              value={productMix.onePiece}
-              onChange={(e) => setProductMix(prev => ({ ...prev, onePiece: parseInt(e.target.value) || 0 }))}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="threePiece" className="text-xs text-muted-foreground">3-Piece</Label>
-            <Input
-              id="threePiece"
-              type="number"
-              min={0}
-              value={productMix.threePiece}
-              onChange={(e) => setProductMix(prev => ({ ...prev, threePiece: parseInt(e.target.value) || 0 }))}
-            />
-          </div>
+        <div className="flex items-center justify-between">
+          <Label>Design Count by Category</Label>
+          <Badge variant={totalCategoryDesigns > allocatedDesigns ? "destructive" : "secondary"}>
+            {totalCategoryDesigns} / {allocatedDesigns} designs
+          </Badge>
         </div>
-        <p className="text-xs text-muted-foreground">Total: {totalPieces} pieces</p>
+        <div className="grid grid-cols-5 gap-3">
+          {(Object.keys(categoryDesigns) as Array<keyof CategoryDesigns>).map((category) => (
+            <div key={category} className="space-y-1">
+              <Label htmlFor={category} className="text-xs text-muted-foreground">
+                {CATEGORY_LABELS[category]}
+              </Label>
+              <Input
+                id={category}
+                type="number"
+                min={0}
+                value={categoryDesigns[category]}
+                onChange={(e) => handleCategoryDesignChange(category, parseInt(e.target.value) || 0)}
+                className="h-9"
+              />
+            </div>
+          ))}
+        </div>
+        {totalCategoryDesigns > allocatedDesigns && (
+          <p className="text-xs text-destructive flex items-center gap-1">
+            <AlertTriangle className="h-3 w-3" />
+            Total exceeds allocated designs for this line
+          </p>
+        )}
       </div>
 
       {/* Collection Description */}
@@ -331,6 +354,26 @@ const CapsuleCollectionPlanForm = ({
             ))}
           </div>
         )}
+        {existingCapsule && existingCapsule.moodboardCount > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {existingCapsule.moodboardCount} existing moodboard(s) saved
+          </p>
+        )}
+      </div>
+
+      {/* Pinterest Board Link */}
+      <div className="space-y-2">
+        <Label htmlFor="pinterestLink" className="flex items-center gap-2">
+          <LinkIcon className="h-4 w-4" />
+          Pinterest Board Link
+        </Label>
+        <Input
+          id="pinterestLink"
+          type="url"
+          value={pinterestBoardLink}
+          onChange={(e) => setPinterestBoardLink(e.target.value)}
+          placeholder="https://pinterest.com/yourbrand/collection-board"
+        />
       </div>
 
       {/* Fabric/Materials Selection */}

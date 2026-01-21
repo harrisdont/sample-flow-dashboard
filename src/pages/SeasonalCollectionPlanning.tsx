@@ -8,12 +8,12 @@ import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Settings2, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
+import { ArrowLeft, Settings2, ChevronDown, ChevronUp, Calendar, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CapsuleCollectionPlanForm from '@/components/CapsuleCollectionPlanForm';
 import MasterCalendar from '@/components/MasterCalendar';
 import { cn } from '@/lib/utils';
-
+import { LINE_COLLECTION_CAPACITY } from '@/data/capsuleCollectionData';
 interface ProductLine {
   id: string;
   name: string;
@@ -455,6 +455,10 @@ const SeasonalCollectionPlanning = () => {
                     const categoryTotal = getLineCategoryTotal(line.id);
                     const unallocated = lineAllocations[line.id] - categoryTotal;
                     const lineStock = getLineStock(line.id, 'fashion');
+                    const designsPerCollection = LINE_COLLECTION_CAPACITY[line.id] || 10;
+                    const suggestedCollections = lineAllocations[line.id] > 0 
+                      ? Math.ceil(lineAllocations[line.id] / designsPerCollection)
+                      : 0;
                     
                     return (
                       <Collapsible
@@ -480,6 +484,20 @@ const SeasonalCollectionPlanning = () => {
                               />
                             </div>
                           </div>
+                          
+                          {/* Suggested Collections Row */}
+                          {suggestedCollections > 0 && (
+                            <div className="flex items-center justify-between mb-2 p-2 rounded bg-primary/10 border border-primary/20">
+                              <div className="flex items-center gap-1.5">
+                                <Layers className="h-3 w-3 text-primary" />
+                                <span className="text-[10px] text-primary font-medium">Suggested Collections</span>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-primary">{suggestedCollections}</p>
+                                <p className="text-[9px] text-muted-foreground">@ {designsPerCollection} designs each</p>
+                              </div>
+                            </div>
+                          )}
                           
                           {/* Stock Summary Row */}
                           <div className="flex items-center justify-between mb-2 p-2 rounded bg-muted/50">
@@ -557,6 +575,10 @@ const SeasonalCollectionPlanning = () => {
                     const categoryTotal = getLineCategoryTotal(line.id);
                     const unallocated = lineAllocations[line.id] - categoryTotal;
                     const lineStock = getLineStock(line.id, 'accessories');
+                    const designsPerCollection = LINE_COLLECTION_CAPACITY[line.id] || 15;
+                    const suggestedCollections = lineAllocations[line.id] > 0 
+                      ? Math.ceil(lineAllocations[line.id] / designsPerCollection)
+                      : 0;
                     
                     return (
                       <Collapsible
@@ -580,6 +602,20 @@ const SeasonalCollectionPlanning = () => {
                               max={totalDesignCount}
                             />
                           </div>
+                          
+                          {/* Suggested Collections Row */}
+                          {suggestedCollections > 0 && (
+                            <div className="flex items-center justify-between mb-2 p-2 rounded bg-primary/10 border border-primary/20">
+                              <div className="flex items-center gap-1.5">
+                                <Layers className="h-3 w-3 text-primary" />
+                                <span className="text-[10px] text-primary font-medium">Suggested Collections</span>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-primary">{suggestedCollections}</p>
+                                <p className="text-[9px] text-muted-foreground">@ {designsPerCollection} designs each</p>
+                              </div>
+                            </div>
+                          )}
                           
                           {/* Stock Summary Row */}
                           <div className="flex items-center justify-between mb-2 p-2 rounded bg-muted/50">
