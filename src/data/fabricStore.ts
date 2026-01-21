@@ -29,6 +29,39 @@ export type ComponentType =
   | 'petticoat'
   | 'trims';
 
+// Ironing instructions type
+export type IroningInstruction = 
+  | 'high-heat'
+  | 'medium-heat'
+  | 'low-heat'
+  | 'iron-reverse'
+  | 'steam-only'
+  | 'do-not-iron';
+
+// Print classification types
+export type PrintCategory = 
+  | 'floral'
+  | 'geometric'
+  | 'conversational'
+  | 'abstract'
+  | 'tribal'
+  | 'paisley'
+  | 'stripes'
+  | 'checks'
+  | 'animal'
+  | 'botanical'
+  | 'ethnic'
+  | 'other';
+
+export type PrintColorScheme = 'monotone' | 'multicolor';
+export type PrintScale = 'macro' | 'micro';
+
+export interface PrintClassification {
+  category: PrintCategory;
+  colorScheme: PrintColorScheme;
+  scale: PrintScale;
+}
+
 export interface TechnicalSpecs {
   construction: string;
   fabricWidth: string;
@@ -37,6 +70,10 @@ export interface TechnicalSpecs {
   shrinkageMargin: string;
   stitchingSpecs: string;
   careInstructions?: string;
+  // New fields
+  recommendedSPI?: number;
+  ironingInstructions?: IroningInstruction;
+  handlingNotes?: string;
 }
 
 export interface FabricEntry {
@@ -53,6 +90,9 @@ export interface FabricEntry {
   fabricComposition: string;
   fabricType: FabricType;
   
+  // Color (from internal palette)
+  colorId?: string;
+  
   // Workflow status
   status: FabricStatus;
   
@@ -67,6 +107,9 @@ export interface FabricEntry {
   dyePlan?: string;
   printPlan?: string;
   baseTreatmentComplete: boolean;
+  
+  // Print Classification (for printed fabrics)
+  printClassification?: PrintClassification;
   
   // Surface Treatment (pre-cut)
   surfaceTreatments: SurfaceTreatment[];
@@ -129,6 +172,40 @@ export const COMPONENT_TYPE_LABELS: Record<ComponentType, string> = {
   'slip': 'Slip',
   'petticoat': 'Petticoat',
   'trims': 'Trims',
+};
+
+export const IRONING_INSTRUCTION_LABELS: Record<IroningInstruction, string> = {
+  'high-heat': 'Iron on High Heat (200°C)',
+  'medium-heat': 'Iron on Medium Heat (150°C)',
+  'low-heat': 'Iron on Low Heat (110°C)',
+  'iron-reverse': 'Iron on Reverse Side Only',
+  'steam-only': 'Steam Only',
+  'do-not-iron': 'Do Not Iron',
+};
+
+export const PRINT_CATEGORY_LABELS: Record<PrintCategory, string> = {
+  'floral': 'Floral',
+  'geometric': 'Geometric',
+  'conversational': 'Conversational',
+  'abstract': 'Abstract',
+  'tribal': 'Tribal',
+  'paisley': 'Paisley',
+  'stripes': 'Stripes',
+  'checks': 'Checks',
+  'animal': 'Animal Print',
+  'botanical': 'Botanical',
+  'ethnic': 'Ethnic/Traditional',
+  'other': 'Other',
+};
+
+export const PRINT_COLOR_SCHEME_LABELS: Record<PrintColorScheme, string> = {
+  'monotone': 'Monotone',
+  'multicolor': 'Multicolor',
+};
+
+export const PRINT_SCALE_LABELS: Record<PrintScale, string> = {
+  'macro': 'Macro Print',
+  'micro': 'Micro Print',
 };
 
 // Helper to determine initial status based on fabric type
