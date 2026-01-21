@@ -21,16 +21,28 @@ import {
   SurfaceTreatment, 
   ComponentType,
   BaseTreatmentType,
+  IroningInstruction,
+  PrintCategory,
+  PrintColorScheme,
+  PrintScale,
+  PrintClassification,
   getInitialStatus,
   FABRIC_TYPE_LABELS,
   PRINT_TYPE_LABELS,
   SURFACE_TREATMENT_LABELS,
   COMPONENT_TYPE_LABELS,
   FABRIC_STATUS_CONFIG,
+  IRONING_INSTRUCTION_LABELS,
+  PRINT_CATEGORY_LABELS,
+  PRINT_COLOR_SCHEME_LABELS,
+  PRINT_SCALE_LABELS,
   TechnicalSpecs,
 } from '@/data/fabricStore';
 import { baseFabricLibrary } from '@/data/libraryData';
 import { useCapsuleStore } from '@/data/capsuleCollectionData';
+import { ColorSelector } from '@/components/ColorSelector';
+import { ColorPaletteManager } from '@/components/ColorPaletteManager';
+import { useColorPaletteStore } from '@/data/colorPaletteStore';
 
 interface FabricInductionFormProps {
   fabric?: FabricEntry;
@@ -85,6 +97,29 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
   const [shrinkageMargin, setShrinkageMargin] = useState(fabric?.technicalSpecs?.shrinkageMargin || '');
   const [stitchingSpecs, setStitchingSpecs] = useState(fabric?.technicalSpecs?.stitchingSpecs || '');
   const [careInstructions, setCareInstructions] = useState(fabric?.technicalSpecs?.careInstructions || '');
+  
+  // New technical specs
+  const [recommendedSPI, setRecommendedSPI] = useState(fabric?.technicalSpecs?.recommendedSPI?.toString() || '');
+  const [ironingInstructions, setIroningInstructions] = useState<IroningInstruction | ''>(
+    fabric?.technicalSpecs?.ironingInstructions || ''
+  );
+  const [handlingNotes, setHandlingNotes] = useState(fabric?.technicalSpecs?.handlingNotes || '');
+  
+  // Color selection
+  const [selectedColorId, setSelectedColorId] = useState<string | undefined>(fabric?.colorId);
+  const [showColorManager, setShowColorManager] = useState(false);
+  const { getColorById } = useColorPaletteStore();
+  
+  // Print classification
+  const [printCategory, setPrintCategory] = useState<PrintCategory | ''>(
+    fabric?.printClassification?.category || ''
+  );
+  const [printColorScheme, setPrintColorScheme] = useState<PrintColorScheme | ''>(
+    fabric?.printClassification?.colorScheme || ''
+  );
+  const [printScale, setPrintScale] = useState<PrintScale | ''>(
+    fabric?.printClassification?.scale || ''
+  );
   
   // Product line colors mapping
   const lineColors: Record<string, string> = {
@@ -154,6 +189,9 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
         shrinkageMargin,
         stitchingSpecs,
         careInstructions: careInstructions || undefined,
+        recommendedSPI: recommendedSPI ? parseInt(recommendedSPI) : undefined,
+        ironingInstructions: ironingInstructions || undefined,
+        handlingNotes: handlingNotes || undefined,
       };
       
       inductFabric(fabric!.id, specs);
@@ -163,6 +201,12 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
     }
     
     if (isEditing) {
+      // Build print classification if all fields are filled
+      const printClassification: PrintClassification | undefined = 
+        (baseTreatmentType === 'printing' && printCategory && printColorScheme && printScale)
+          ? { category: printCategory as PrintCategory, colorScheme: printColorScheme as PrintColorScheme, scale: printScale as PrintScale }
+          : undefined;
+      
       updateFabricEntry(fabric!.id, {
         fabricName,
         fabricComposition,
@@ -173,6 +217,8 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
         printPlan: baseTreatmentType === 'printing' ? printPlan : undefined,
         surfaceTreatments,
         fabricDeadline,
+        colorId: selectedColorId,
+        printClassification,
       });
       toast.success('Fabric updated successfully!');
     } else {
@@ -184,6 +230,12 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
       
       const status = getInitialStatus(fabricType, baseTreatmentType);
       
+      // Build print classification if all fields are filled
+      const printClassification: PrintClassification | undefined = 
+        (baseTreatmentType === 'printing' && printCategory && printColorScheme && printScale)
+          ? { category: printCategory as PrintCategory, colorScheme: printColorScheme as PrintColorScheme, scale: printScale as PrintScale }
+          : undefined;
+      
       addFabricEntry({
         collectionId: collection.id,
         collectionName: collection.name,
@@ -194,12 +246,14 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
         fabricName,
         fabricComposition,
         fabricType,
+        colorId: selectedColorId,
         status,
         artworkSubmitted: false,
         baseTreatmentType,
         printType: baseTreatmentType === 'printing' ? printType : undefined,
         dyePlan: baseTreatmentType === 'dyeing' ? dyePlan : undefined,
         printPlan: baseTreatmentType === 'printing' ? printPlan : undefined,
+        printClassification,
         baseTreatmentComplete: baseTreatmentType === 'none' && !['jacquard', 'dobby', 'yarn-dyed'].includes(fabricType),
         surfaceTreatments,
         surfaceTreatmentComplete: surfaceTreatments.length === 0,
@@ -458,9 +512,75 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
                   rows={3}
                 />
               </div>
+              
+              {/* Print Classification */}
+              <div className="p-4 rounded-lg border border-border bg-muted/30 space-y-4">
+                <h4 className="font-medium text-sm">Print Classification</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Category</Label>
+                    <Select value={printCategory} onValueChange={(v) => setPrintCategory(v as PrintCategory)}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(PRINT_CATEGORY_LABELS).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Color Scheme</Label>
+                    <Select value={printColorScheme} onValueChange={(v) => setPrintColorScheme(v as PrintColorScheme)}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(PRINT_COLOR_SCHEME_LABELS).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Scale</Label>
+                    <Select value={printScale} onValueChange={(v) => setPrintScale(v as PrintScale)}>
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(PRINT_SCALE_LABELS).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
             </>
           )}
         </div>
+      )}
+      
+      {/* Color Selection */}
+      {!isReadyForInduction && (
+        <>
+          <Separator />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Color Selection</h3>
+              <ColorPaletteManager />
+            </div>
+            <div className="space-y-2">
+              <Label>Internal Color</Label>
+              <ColorSelector 
+                value={selectedColorId}
+                onChange={setSelectedColorId}
+              />
+            </div>
+          </div>
+        </>
       )}
       
       {/* Artwork Section - Only for jacquard/dobby/yarn-dyed */}
@@ -590,12 +710,47 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
               />
             </div>
             
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Recommended SPI</Label>
+                <Input 
+                  type="number"
+                  value={recommendedSPI}
+                  onChange={(e) => setRecommendedSPI(e.target.value)}
+                  placeholder="e.g., 10-12"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Ironing Instructions</Label>
+                <Select value={ironingInstructions} onValueChange={(v) => setIroningInstructions(v as IroningInstruction)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(IRONING_INSTRUCTION_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
             <div className="space-y-2">
               <Label>Care Instructions (optional)</Label>
               <Textarea 
                 value={careInstructions}
                 onChange={(e) => setCareInstructions(e.target.value)}
                 placeholder="e.g., Machine wash cold, tumble dry low, do not bleach"
+                rows={2}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Handling Notes (optional)</Label>
+              <Textarea 
+                value={handlingNotes}
+                onChange={(e) => setHandlingNotes(e.target.value)}
+                placeholder="e.g., Handle with care, avoid direct sunlight during storage"
                 rows={2}
               />
             </div>
