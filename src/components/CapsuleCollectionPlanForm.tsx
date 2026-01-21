@@ -20,7 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, Upload, X, Plus, AlertTriangle, Clock, ArrowRight, CheckCircle2, Link as LinkIcon } from 'lucide-react';
+import { CalendarIcon, Upload, X, Plus, AlertTriangle, Clock, ArrowRight, CheckCircle2, Link as LinkIcon, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { 
@@ -28,7 +28,19 @@ import {
   getComplexTechniques,
 } from '@/data/leadTimeSettings';
 import { calculateBackwardsSchedule, getPhaseColor } from '@/lib/schedulingEngine';
-import { useCapsuleStore, CapsuleCollection, CategoryDesigns } from '@/data/capsuleCollectionData';
+import { 
+  useCapsuleStore, 
+  CapsuleCollection, 
+  CategoryDesigns,
+  CategoryComposition,
+  FabricRequirements,
+  TwoPieceComposition,
+  SpecializedCategory,
+  defaultCategoryComposition,
+  defaultFabricRequirements,
+  getRequiredFabricFields,
+  FABRIC_FIELD_LABELS,
+} from '@/data/capsuleCollectionData';
 import { toast } from 'sonner';
 
 interface CapsuleCollectionPlanFormProps {
@@ -57,6 +69,18 @@ const CATEGORY_LABELS: Record<keyof CategoryDesigns, string> = {
   lowers: 'Lowers',
 };
 
+// Composition options
+const TWO_PIECE_OPTIONS: { value: TwoPieceComposition; label: string }[] = [
+  { value: 'shirt-lowers', label: 'Shirt + Lowers' },
+  { value: 'shirt-dupatta', label: 'Shirt + Dupatta' },
+];
+
+const SPECIALIZED_OPTIONS: { value: SpecializedCategory; label: string; description: string }[] = [
+  { value: 'none', label: 'None', description: 'No specialized garments' },
+  { value: 'lehenga-set', label: 'Lehenga Set', description: 'Lehenga + Choli + Dupatta' },
+  { value: 'saree-set', label: 'Saree Set', description: 'Saree + Blouse' },
+];
+
 const CapsuleCollectionPlanForm = ({
   lineId,
   lineName,
@@ -83,6 +107,12 @@ const CapsuleCollectionPlanForm = ({
     dupattas: 0,
     lowers: 0,
   });
+  const [categoryComposition, setCategoryComposition] = useState<CategoryComposition>(
+    existingCapsule?.categoryComposition || { ...defaultCategoryComposition }
+  );
+  const [fabricRequirements, setFabricRequirements] = useState<FabricRequirements>(
+    existingCapsule?.fabricRequirements || { ...defaultFabricRequirements }
+  );
   const [moodboards, setMoodboards] = useState<File[]>([]);
   const [pinterestBoardLink, setPinterestBoardLink] = useState(existingCapsule?.pinterestBoardLink || '');
   const [description, setDescription] = useState(existingCapsule?.description || '');
@@ -98,12 +128,20 @@ const CapsuleCollectionPlanForm = ({
       setTargetDate(existingCapsule.targetInStoreDate);
       setProductMix(existingCapsule.productMix);
       setCategoryDesigns(existingCapsule.categoryDesigns);
+      setCategoryComposition(existingCapsule.categoryComposition || { ...defaultCategoryComposition });
+      setFabricRequirements(existingCapsule.fabricRequirements || { ...defaultFabricRequirements });
       setPinterestBoardLink(existingCapsule.pinterestBoardLink);
       setDescription(existingCapsule.description);
       setFabrics(existingCapsule.fabrics);
       setSelectedTechniques(existingCapsule.selectedTechniques);
     }
   }, [existingCapsule]);
+
+  // Get required fabric fields based on current composition
+  const requiredFabricFields = useMemo(() => 
+    getRequiredFabricFields(categoryDesigns, categoryComposition),
+    [categoryDesigns, categoryComposition]
+  );
 
   // Auto-fetch target date when GTM strategy is selected
   const handleGtmChange = (value: string) => {
@@ -150,6 +188,30 @@ const CapsuleCollectionPlanForm = ({
     }));
   };
 
+  const handleCompositionChange = (field: keyof CategoryComposition, value: string | number | boolean) => {
+    setCategoryComposition(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleGarmentExtrasChange = (field: keyof CategoryComposition['garmentExtras'], value: boolean) => {
+    setCategoryComposition(prev => ({
+      ...prev,
+      garmentExtras: {
+        ...prev.garmentExtras,
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleFabricRequirementChange = (field: keyof FabricRequirements, value: string) => {
+    setFabricRequirements(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -168,6 +230,8 @@ const CapsuleCollectionPlanForm = ({
       targetInStoreDate: targetDate,
       productMix,
       categoryDesigns,
+      categoryComposition,
+      fabricRequirements,
       selectedTechniques,
       fabrics,
       description,
@@ -189,7 +253,7 @@ const CapsuleCollectionPlanForm = ({
     onClose();
   };
 
-  const totalCategoryDesigns = Object.values(categoryDesigns).reduce((sum, val) => sum + val, 0);
+  const totalCategoryDesigns = Object.values(categoryDesigns).reduce((sum, val) => sum + val, 0) + categoryComposition.specializedCount;
 
   // Calculate complete schedule with backwards scheduling
   const schedule = useMemo(() => {
@@ -272,31 +336,198 @@ const CapsuleCollectionPlanForm = ({
         </div>
       </div>
 
-      {/* Category Design Counts */}
-      <div className="space-y-3">
+      {/* Category Design Counts with Composition Dropdowns */}
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
           <Label>Design Count by Category</Label>
           <Badge variant={totalCategoryDesigns > allocatedDesigns ? "destructive" : "secondary"}>
             {totalCategoryDesigns} / {allocatedDesigns} designs
           </Badge>
         </div>
-        <div className="grid grid-cols-5 gap-3">
-          {(Object.keys(categoryDesigns) as Array<keyof CategoryDesigns>).map((category) => (
-            <div key={category} className="space-y-1">
-              <Label htmlFor={category} className="text-xs text-muted-foreground">
-                {CATEGORY_LABELS[category]}
-              </Label>
+        
+        {/* Standard Categories */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {/* 1-Piece */}
+          <div className="space-y-1">
+            <Label htmlFor="onePiece" className="text-xs text-muted-foreground">
+              {CATEGORY_LABELS.onePiece}
+            </Label>
+            <Input
+              id="onePiece"
+              type="number"
+              min={0}
+              value={categoryDesigns.onePiece}
+              onChange={(e) => handleCategoryDesignChange('onePiece', parseInt(e.target.value) || 0)}
+              className="h-9"
+            />
+          </div>
+
+          {/* 2-Piece with Dropdown */}
+          <div className="space-y-1">
+            <Label htmlFor="twoPiece" className="text-xs text-muted-foreground">
+              {CATEGORY_LABELS.twoPiece}
+            </Label>
+            <div className="space-y-1.5">
               <Input
-                id={category}
+                id="twoPiece"
                 type="number"
                 min={0}
-                value={categoryDesigns[category]}
-                onChange={(e) => handleCategoryDesignChange(category, parseInt(e.target.value) || 0)}
+                value={categoryDesigns.twoPiece}
+                onChange={(e) => handleCategoryDesignChange('twoPiece', parseInt(e.target.value) || 0)}
                 className="h-9"
               />
+              {categoryDesigns.twoPiece > 0 && (
+                <Select 
+                  value={categoryComposition.twoPieceType} 
+                  onValueChange={(v) => handleCompositionChange('twoPieceType', v as TwoPieceComposition)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TWO_PIECE_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
-          ))}
+          </div>
+
+          {/* 3-Piece with fixed composition */}
+          <div className="space-y-1">
+            <Label htmlFor="threePiece" className="text-xs text-muted-foreground">
+              {CATEGORY_LABELS.threePiece}
+            </Label>
+            <div className="space-y-1.5">
+              <Input
+                id="threePiece"
+                type="number"
+                min={0}
+                value={categoryDesigns.threePiece}
+                onChange={(e) => handleCategoryDesignChange('threePiece', parseInt(e.target.value) || 0)}
+                className="h-9"
+              />
+              {categoryDesigns.threePiece > 0 && (
+                <p className="text-[10px] text-muted-foreground">Shirt + Lowers + Dupatta</p>
+              )}
+            </div>
+          </div>
+
+          {/* Dupattas */}
+          <div className="space-y-1">
+            <Label htmlFor="dupattas" className="text-xs text-muted-foreground">
+              {CATEGORY_LABELS.dupattas}
+            </Label>
+            <Input
+              id="dupattas"
+              type="number"
+              min={0}
+              value={categoryDesigns.dupattas}
+              onChange={(e) => handleCategoryDesignChange('dupattas', parseInt(e.target.value) || 0)}
+              className="h-9"
+            />
+          </div>
+
+          {/* Lowers */}
+          <div className="space-y-1">
+            <Label htmlFor="lowers" className="text-xs text-muted-foreground">
+              {CATEGORY_LABELS.lowers}
+            </Label>
+            <Input
+              id="lowers"
+              type="number"
+              min={0}
+              value={categoryDesigns.lowers}
+              onChange={(e) => handleCategoryDesignChange('lowers', parseInt(e.target.value) || 0)}
+              className="h-9"
+            />
+          </div>
         </div>
+
+        {/* Specialized Categories */}
+        <Card className="p-4 bg-muted/30">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <Label className="text-sm font-medium">Specialized Categories</Label>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Category Type</Label>
+              <Select 
+                value={categoryComposition.specializedCategory} 
+                onValueChange={(v) => handleCompositionChange('specializedCategory', v as SpecializedCategory)}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SPECIALIZED_OPTIONS.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <div className="flex flex-col">
+                        <span>{opt.label}</span>
+                        <span className="text-xs text-muted-foreground">{opt.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {categoryComposition.specializedCategory !== 'none' && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    {categoryComposition.specializedCategory === 'lehenga-set' ? 'Lehenga Sets' : 'Saree Sets'} Count
+                  </Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={categoryComposition.specializedCount}
+                    onChange={(e) => handleCompositionChange('specializedCount', parseInt(e.target.value) || 0)}
+                    className="h-9"
+                  />
+                </div>
+
+                {/* Extras for specialized categories */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Additional Components</Label>
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasLining"
+                        checked={categoryComposition.garmentExtras.hasLining}
+                        onCheckedChange={(checked) => handleGarmentExtrasChange('hasLining', !!checked)}
+                      />
+                      <label htmlFor="hasLining" className="text-sm cursor-pointer">Lining</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="hasSlip"
+                        checked={categoryComposition.garmentExtras.hasSlip}
+                        onCheckedChange={(checked) => handleGarmentExtrasChange('hasSlip', !!checked)}
+                      />
+                      <label htmlFor="hasSlip" className="text-sm cursor-pointer">Slip</label>
+                    </div>
+                    {categoryComposition.specializedCategory === 'saree-set' && (
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="hasPetticoat"
+                          checked={categoryComposition.garmentExtras.hasPetticoat}
+                          onCheckedChange={(checked) => handleGarmentExtrasChange('hasPetticoat', !!checked)}
+                        />
+                        <label htmlFor="hasPetticoat" className="text-sm cursor-pointer">Petticoat</label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+
         {totalCategoryDesigns > allocatedDesigns && (
           <p className="text-xs text-destructive flex items-center gap-1">
             <AlertTriangle className="h-3 w-3" />
@@ -304,6 +535,35 @@ const CapsuleCollectionPlanForm = ({
           </p>
         )}
       </div>
+
+      {/* Auto-generated Fabric Requirements */}
+      {requiredFabricFields.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Label>Fabric Requirements</Label>
+            <Badge variant="outline" className="text-xs">Auto-generated</Badge>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {requiredFabricFields.map(field => (
+              <div key={field} className="space-y-1">
+                <Label htmlFor={field} className="text-xs text-muted-foreground flex items-center gap-1">
+                  {FABRIC_FIELD_LABELS[field]}
+                  {field === 'trimsFabric' && (
+                    <Badge variant="secondary" className="text-[10px] h-4">Suggested</Badge>
+                  )}
+                </Label>
+                <Input
+                  id={field}
+                  value={fabricRequirements[field]}
+                  onChange={(e) => handleFabricRequirementChange(field, e.target.value)}
+                  placeholder={`Enter ${FABRIC_FIELD_LABELS[field].toLowerCase()}`}
+                  className="h-9"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Collection Description */}
       <div className="space-y-2">
@@ -376,9 +636,9 @@ const CapsuleCollectionPlanForm = ({
         />
       </div>
 
-      {/* Fabric/Materials Selection */}
+      {/* Additional Fabric/Materials Selection */}
       <div className="space-y-3">
-        <Label>Fabric/Materials</Label>
+        <Label>Additional Fabric/Materials</Label>
         <div className="flex gap-2">
           <Input
             value={newFabric}
