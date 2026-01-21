@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { TechpackPreview } from '@/components/TechpackPreview';
-import { mockCollections } from '@/data/mockData';
+import { useCapsuleStore } from '@/data/capsuleCollectionData';
 import {
   silhouetteLibrary,
   necklineLibrary,
@@ -41,6 +41,8 @@ interface NewDesignFormProps {
 type Step = 1 | 2 | 3;
 
 export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
+  const capsules = useCapsuleStore((state) => state.capsules);
+  const capsuleList = Object.values(capsules);
   const [step, setStep] = useState<Step>(1);
   const [selectedCollection, setSelectedCollection] = useState('');
   const [selectedSilhouette, setSelectedSilhouette] = useState('');
@@ -209,9 +211,9 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     <SelectValue placeholder="Select collection" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockCollections.map((collection) => (
-                      <SelectItem key={collection.name} value={collection.name}>
-                        {collection.name} - Slot {collection.slot}
+                    {capsuleList.map((capsule) => (
+                      <SelectItem key={capsule.id} value={capsule.id}>
+                        {capsule.lineName} - {capsule.collectionName}
                       </SelectItem>
                     ))}
                   </SelectContent>
