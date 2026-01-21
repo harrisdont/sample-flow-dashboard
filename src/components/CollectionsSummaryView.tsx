@@ -2,11 +2,19 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useCapsuleStore, CapsuleCollection } from '@/data/capsuleCollectionData';
-import { calculateBackwardsSchedule, getMilestoneStatus } from '@/lib/schedulingEngine';
+import { calculateBackwardsSchedule, Milestone } from '@/lib/schedulingEngine';
 import { format, differenceInDays } from 'date-fns';
-import { CheckCircle2, Clock, AlertTriangle, Layers, Calendar, Scissors, Package } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, Layers, Calendar, Scissors, Package, Flag } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface KeyDeadlines {
+  fabricOrderDeadline: Date;
+  samplingDeadline: Date;
+  productionStartDeadline: Date;
+  collectionReadyDate: Date;
+}
 
 interface CollectionWithStatus extends CapsuleCollection {
   totalDesigns: number;
@@ -14,6 +22,8 @@ interface CollectionWithStatus extends CapsuleCollection {
   samplingStatus: 'not-started' | 'in-progress' | 'completed';
   productionStatus: 'not-started' | 'in-progress' | 'completed';
   daysUntilInStore: number;
+  deadlines: KeyDeadlines;
+  milestones: Milestone[];
 }
 
 const LINE_COLORS: Record<string, string> = {
@@ -53,6 +63,29 @@ const getStatusBadge = (status: 'not-started' | 'in-progress' | 'completed') => 
         </Badge>
       );
   }
+};
+
+const getDeadlineBadge = (deadline: Date, label: string) => {
+  const today = new Date();
+  const daysUntil = differenceInDays(deadline, today);
+  
+  let badgeClass = "text-xs";
+  if (daysUntil < 0) {
+    badgeClass = "text-xs bg-[hsl(var(--status-delayed))]/10 text-[hsl(var(--status-delayed))] border-[hsl(var(--status-delayed))]/20";
+  } else if (daysUntil <= 7) {
+    badgeClass = "text-xs bg-[hsl(var(--status-pending))]/10 text-[hsl(var(--status-pending))] border-[hsl(var(--status-pending))]/20";
+  }
+
+  return (
+    <div className={cn("rounded px-2 py-1 border", badgeClass)}>
+      <div className="font-medium">{format(deadline, 'MMM d')}</div>
+      {daysUntil < 0 ? (
+        <div className="text-[10px]">{Math.abs(daysUntil)}d overdue</div>
+      ) : (
+        <div className="text-[10px] text-muted-foreground">{daysUntil}d left</div>
+      )}
+    </div>
+  );
 };
 
 const getTimelineBadge = (daysUntilInStore: number) => {
@@ -108,10 +141,17 @@ export const CollectionsSummaryView = () => {
 
         const daysUntilInStore = differenceInDays(new Date(collection.targetInStoreDate), today);
 
-        // Determine statuses based on schedule and current date
+        // Extract key deadlines from milestones
         const fabricMilestone = schedule.milestones.find(m => m.id === 'fabric-ordering');
         const samplingMilestone = schedule.milestones.find(m => m.id === 'sampling');
-        const productionMilestone = schedule.milestones.find(m => m.id === 'production');
+        const productionMilestone = schedule.milestones.find(m => m.phase === 'production');
+
+        const deadlines: KeyDeadlines = {
+          fabricOrderDeadline: fabricMilestone?.startDate || schedule.fabricDesignStartDate,
+          samplingDeadline: samplingMilestone?.startDate || schedule.productionStartDate,
+          productionStartDeadline: schedule.productionStartDate,
+          collectionReadyDate: schedule.collectionReadyDate,
+        };
 
         const getFabricStatus = (): 'not-started' | 'in-progress' | 'completed' => {
           if (!fabricMilestone) return 'not-started';
@@ -130,7 +170,7 @@ export const CollectionsSummaryView = () => {
         const getProductionStatus = (): 'not-started' | 'in-progress' | 'completed' => {
           if (!productionMilestone) return 'not-started';
           if (today < productionMilestone.startDate) return 'not-started';
-          if (today > productionMilestone.endDate) return 'completed';
+          if (today > schedule.collectionReadyDate) return 'completed';
           return 'in-progress';
         };
 
@@ -141,6 +181,8 @@ export const CollectionsSummaryView = () => {
           samplingStatus: getSamplingStatus(),
           productionStatus: getProductionStatus(),
           daysUntilInStore,
+          deadlines,
+          milestones: schedule.milestones,
         };
       })
       .sort((a, b) => new Date(a.targetInStoreDate).getTime() - new Date(b.targetInStoreDate).getTime());
@@ -171,126 +213,174 @@ export const CollectionsSummaryView = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Total Collections</div>
-          <div className="text-2xl font-bold">{summaryStats.total}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">Total Designs</div>
-          <div className="text-2xl font-bold text-primary">{summaryStats.totalDesigns}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">In Sampling</div>
-          <div className="text-2xl font-bold text-[hsl(var(--status-pending))]">{summaryStats.inSampling}</div>
-        </Card>
-        <Card className="p-4">
-          <div className="text-sm text-muted-foreground">In Production</div>
-          <div className="text-2xl font-bold text-[hsl(var(--status-in-progress))]">{summaryStats.inProduction}</div>
-        </Card>
-        <Card className={cn(
-          "p-4",
-          summaryStats.overdue > 0 && "bg-[hsl(var(--status-delayed))]/10 border-[hsl(var(--status-delayed))]/20"
-        )}>
-          <div className="text-sm text-muted-foreground flex items-center gap-1">
-            {summaryStats.overdue > 0 && <AlertTriangle className="h-3 w-3 text-[hsl(var(--status-delayed))]" />}
-            Overdue
-          </div>
-          <div className={cn(
-            "text-2xl font-bold",
-            summaryStats.overdue > 0 ? "text-[hsl(var(--status-delayed))]" : "text-muted-foreground"
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Summary Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <Card className="p-4">
+            <div className="text-sm text-muted-foreground">Total Collections</div>
+            <div className="text-2xl font-bold">{summaryStats.total}</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-sm text-muted-foreground">Total Designs</div>
+            <div className="text-2xl font-bold text-primary">{summaryStats.totalDesigns}</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-sm text-muted-foreground">In Sampling</div>
+            <div className="text-2xl font-bold text-[hsl(var(--status-pending))]">{summaryStats.inSampling}</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-sm text-muted-foreground">In Production</div>
+            <div className="text-2xl font-bold text-[hsl(var(--status-in-progress))]">{summaryStats.inProduction}</div>
+          </Card>
+          <Card className={cn(
+            "p-4",
+            summaryStats.overdue > 0 && "bg-[hsl(var(--status-delayed))]/10 border-[hsl(var(--status-delayed))]/20"
           )}>
-            {summaryStats.overdue}
-          </div>
+            <div className="text-sm text-muted-foreground flex items-center gap-1">
+              {summaryStats.overdue > 0 && <AlertTriangle className="h-3 w-3 text-[hsl(var(--status-delayed))]" />}
+              Overdue
+            </div>
+            <div className={cn(
+              "text-2xl font-bold",
+              summaryStats.overdue > 0 ? "text-[hsl(var(--status-delayed))]" : "text-muted-foreground"
+            )}>
+              {summaryStats.overdue}
+            </div>
+          </Card>
+        </div>
+
+        {/* Collections Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              All Planned Collections
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Line</TableHead>
+                    <TableHead>Collection</TableHead>
+                    <TableHead className="text-center">Designs</TableHead>
+                    <TableHead className="text-center">
+                      <span className="flex items-center gap-1 justify-center">
+                        <Package className="h-3.5 w-3.5" />
+                        Fabric Deadline
+                      </span>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <span className="flex items-center gap-1 justify-center">
+                        <Scissors className="h-3.5 w-3.5" />
+                        Sampling Deadline
+                      </span>
+                    </TableHead>
+                    <TableHead className="text-center">Production Start</TableHead>
+                    <TableHead className="text-center">
+                      <span className="flex items-center gap-1 justify-center">
+                        <Flag className="h-3.5 w-3.5" />
+                        In-Store Date
+                      </span>
+                    </TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {collectionsWithStatus.map((collection) => (
+                    <TableRow key={collection.id} className="hover:bg-accent/50">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "h-3 w-3 rounded-full",
+                            LINE_COLORS[collection.lineId] || 'bg-muted'
+                          )} />
+                          <span className="font-medium">{collection.lineName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-help">
+                              <div className="font-medium">{collection.collectionName}</div>
+                              {collection.fabrics && collection.fabrics.length > 0 && (
+                                <div className="text-xs text-muted-foreground">
+                                  {collection.fabrics.slice(0, 2).join(', ')}
+                                  {collection.fabrics.length > 2 && ` +${collection.fabrics.length - 2}`}
+                                </div>
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="max-w-xs">
+                            <div className="space-y-2">
+                              <div className="font-semibold">{collection.collectionName}</div>
+                              <div className="text-xs space-y-1">
+                                {collection.milestones.slice(0, 6).map(m => (
+                                  <div key={m.id} className="flex justify-between gap-4">
+                                    <span>{m.label}:</span>
+                                    <span className="text-muted-foreground">
+                                      {format(m.startDate, 'MMM d')} - {format(m.endDate, 'MMM d')}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary">{collection.totalDesigns}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          {getDeadlineBadge(collection.deadlines.fabricOrderDeadline, 'Fabric')}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          {getDeadlineBadge(collection.deadlines.samplingDeadline, 'Sampling')}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          {getDeadlineBadge(collection.deadlines.productionStartDeadline, 'Production')}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex justify-center">
+                          <div className="rounded px-2 py-1 border bg-[hsl(var(--status-in-progress))]/10 border-[hsl(var(--status-in-progress))]/20">
+                            <div className="font-medium text-xs text-[hsl(var(--status-in-progress))]">
+                              {format(new Date(collection.targetInStoreDate), 'MMM d, yyyy')}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex flex-col gap-1 items-center">
+                          {getStatusBadge(
+                            collection.productionStatus === 'in-progress' ? 'in-progress' :
+                            collection.samplingStatus === 'in-progress' ? 'in-progress' :
+                            collection.fabricStatus === 'in-progress' ? 'in-progress' :
+                            collection.productionStatus === 'completed' ? 'completed' : 'not-started'
+                          )}
+                          {collection.daysUntilInStore < 0 && (
+                            <Badge className="bg-[hsl(var(--status-delayed))] text-background text-[10px]">
+                              {Math.abs(collection.daysUntilInStore)}d late
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
         </Card>
       </div>
-
-      {/* Collections Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Layers className="h-5 w-5" />
-            All Planned Collections
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Line</TableHead>
-                  <TableHead>Collection</TableHead>
-                  <TableHead>Target In-Store</TableHead>
-                  <TableHead className="text-center">Designs</TableHead>
-                  <TableHead className="text-center">
-                    <span className="flex items-center gap-1 justify-center">
-                      <Package className="h-3.5 w-3.5" />
-                      Fabric
-                    </span>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <span className="flex items-center gap-1 justify-center">
-                      <Scissors className="h-3.5 w-3.5" />
-                      Sampling
-                    </span>
-                  </TableHead>
-                  <TableHead className="text-center">Production</TableHead>
-                  <TableHead className="text-right">Timeline</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {collectionsWithStatus.map((collection) => (
-                  <TableRow key={collection.id} className="hover:bg-accent/50">
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "h-3 w-3 rounded-full",
-                          LINE_COLORS[collection.lineId] || 'bg-muted'
-                        )} />
-                        <span className="font-medium">{collection.lineName}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{collection.collectionName}</div>
-                        {collection.fabrics && collection.fabrics.length > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            {collection.fabrics.slice(0, 2).join(', ')}
-                            {collection.fabrics.length > 2 && ` +${collection.fabrics.length - 2}`}
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {format(new Date(collection.targetInStoreDate), 'MMM d, yyyy')}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="secondary">{collection.totalDesigns}</Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getStatusBadge(collection.fabricStatus)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getStatusBadge(collection.samplingStatus)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {getStatusBadge(collection.productionStatus)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {getTimelineBadge(collection.daysUntilInStore)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    </TooltipProvider>
   );
 };
 
