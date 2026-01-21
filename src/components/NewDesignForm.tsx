@@ -23,6 +23,7 @@ import { Progress } from '@/components/ui/progress';
 import { TechpackPreview } from '@/components/TechpackPreview';
 import { useCapsuleStore, CategoryDesigns } from '@/data/capsuleCollectionData';
 import { useDesignStore, Design } from '@/data/designStore';
+import { useFabricStore, FabricEntry, PrintClassification, IroningInstruction } from '@/data/fabricStore';
 import {
   silhouetteLibrary,
   necklineLibrary,
@@ -56,12 +57,14 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const capsules = useCapsuleStore((state) => state.capsules);
   const capsuleList = Object.values(capsules);
   const { addDesign, getDesignCountByCategory } = useDesignStore();
+  const { getFabricsByCollection } = useFabricStore();
   
   const [step, setStep] = useState<Step>(1);
   const [selectedCollection, setSelectedCollection] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<DesignCategory | ''>('');
   const [selectedSilhouette, setSelectedSilhouette] = useState('');
   const [selectedFabric, setSelectedFabric] = useState('');
+  const [selectedInductedFabric, setSelectedInductedFabric] = useState<FabricEntry | null>(null);
   const [isCustom, setIsCustom] = useState(false);
   const [selectedNeckline, setSelectedNeckline] = useState('');
   const [selectedSleeve, setSelectedSleeve] = useState('');
@@ -74,6 +77,12 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const techpackRef = useRef<HTMLDivElement>(null);
+
+  // Get inducted fabrics for selected collection
+  const inductedFabrics = useMemo(() => {
+    if (!selectedCollection) return [];
+    return getFabricsByCollection(selectedCollection).filter(f => f.status === 'inducted');
+  }, [selectedCollection, getFabricsByCollection]);
 
   // Get current collection's category limits and usage
   const selectedCapsule = capsules[selectedCollection];
@@ -235,11 +244,17 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
     setSelectedCategory('');
     setSelectedSilhouette('');
     setSelectedFabric('');
+    setSelectedInductedFabric(null);
     setIsCustom(false);
     setSelectedNeckline('');
     setSelectedSleeve('');
     setSelectedSeamFinish('');
     setSampleType('');
+    setAdditionalNotes('');
+    setFastTrack(false);
+    setFastTrackReason('');
+    setSelectedProcesses([]);
+    setErrors({});
     setAdditionalNotes('');
     setFastTrack(false);
     setFastTrackReason('');
@@ -454,6 +469,35 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                   </p>
                 )}
               </div>
+
+              {/* Inducted Fabric Selection (optional - for enhanced specs) */}
+              {inductedFabrics.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Link Inducted Fabric (Optional)</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Select an inducted fabric to include its color, print classification, and care specs in the techpack
+                  </p>
+                  <Select
+                    value={selectedInductedFabric?.id || ''}
+                    onValueChange={(value) => {
+                      const fabric = inductedFabrics.find(f => f.id === value);
+                      setSelectedInductedFabric(fabric || null);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select inducted fabric (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">None</SelectItem>
+                      {inductedFabrics.map((fabric) => (
+                        <SelectItem key={fabric.id} value={fabric.id}>
+                          {fabric.fabricName} - {fabric.componentType}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Production Processes</Label>
@@ -724,6 +768,12 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     additionalNotes={additionalNotes}
                     fastTrack={fastTrack}
                     fastTrackReason={fastTrackReason}
+                    // Enhanced fabric specs from inducted fabric
+                    colorId={selectedInductedFabric?.colorId}
+                    printClassification={selectedInductedFabric?.printClassification}
+                    recommendedSPI={selectedInductedFabric?.technicalSpecs?.recommendedSPI}
+                    ironingInstructions={selectedInductedFabric?.technicalSpecs?.ironingInstructions}
+                    handlingNotes={selectedInductedFabric?.technicalSpecs?.handlingNotes}
                   />
                 </div>
               </div>
