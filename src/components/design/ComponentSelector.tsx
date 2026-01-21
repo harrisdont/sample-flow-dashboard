@@ -1,5 +1,4 @@
-import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -11,9 +10,17 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertCircle, IndianRupee, Calculator, CheckCircle2, Plus, X } from 'lucide-react';
 import { useSilhouetteStore, Silhouette, SilhouetteCategory } from '@/data/silhouetteStore';
 import { FabricEntry } from '@/data/fabricStore';
+import { FabricInductionForm } from '@/components/FabricInductionForm';
 
 export type ComponentType = 'shirt' | 'lowers' | 'dupatta' | 'slip' | 'lining' | 'lehenga' | 'choli' | 'saree' | 'blouse';
 
@@ -38,6 +45,8 @@ interface ComponentSelectorProps {
   onChange: (config: ComponentConfig) => void;
   showCostBreakdown?: boolean;
   error?: string;
+  collectionId?: string;
+  onFabricAdded?: () => void;
 }
 
 const COMPONENT_TYPE_TO_SILHOUETTE_CATEGORY: Record<ComponentType, SilhouetteCategory[]> = {
@@ -61,8 +70,11 @@ export const ComponentSelector = ({
   onChange,
   showCostBreakdown = true,
   error,
+  collectionId,
+  onFabricAdded,
 }: ComponentSelectorProps) => {
   const { getApprovedSilhouettes, calculateSilhouetteCost, getSilhouetteById } = useSilhouetteStore();
+  const [isAddFabricOpen, setIsAddFabricOpen] = useState(false);
   
   // Get approved silhouettes filtered by category
   const filteredSilhouettes = useMemo(() => {
@@ -202,25 +214,28 @@ export const ComponentSelector = ({
         <div className="flex items-center justify-between">
           <Label className="text-sm">Primary Fabric *</Label>
           <Button
+            type="button"
             variant="ghost"
             size="sm"
-            asChild
+            onClick={() => setIsAddFabricOpen(true)}
             className="h-6 px-2 text-xs text-primary hover:text-primary/80"
           >
-            <Link to="/fabric-induction" target="_blank">
-              <Plus className="h-3 w-3 mr-1" />
-              Add Fabric
-            </Link>
+            <Plus className="h-3 w-3 mr-1" />
+            Add Fabric
           </Button>
         </div>
         {availableFabrics.length === 0 ? (
           <div className="p-3 text-sm text-muted-foreground bg-muted/30 rounded-md flex flex-col gap-2">
             <span>No inducted fabrics available for this component.</span>
-            <Button variant="outline" size="sm" asChild className="w-fit">
-              <Link to="/fabric-induction" target="_blank">
-                <Plus className="h-3 w-3 mr-1" />
-                Add Fabric in Fabric Induction
-              </Link>
+            <Button 
+              type="button"
+              variant="outline" 
+              size="sm" 
+              onClick={() => setIsAddFabricOpen(true)}
+              className="w-fit"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Add Fabric
             </Button>
           </div>
         ) : (
@@ -350,6 +365,24 @@ export const ComponentSelector = ({
           {error}
         </p>
       )}
+
+      {/* Add Fabric Dialog */}
+      <Dialog open={isAddFabricOpen} onOpenChange={setIsAddFabricOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Add New Fabric</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[70vh] pr-4">
+            <FabricInductionForm 
+              defaultCollectionId={collectionId}
+              onClose={() => {
+                setIsAddFabricOpen(false);
+                onFabricAdded?.();
+              }} 
+            />
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
