@@ -34,6 +34,7 @@ import { TrimSelector } from '@/components/design/TrimSelector';
 import { ClosureSelector } from '@/components/design/ClosureSelector';
 import { LiningConfigurator, LiningConfig, SlipConfig } from '@/components/design/LiningConfigurator';
 import { TechpackCanvas } from '@/components/design/TechpackCanvas';
+import { FabricBlockingPanel, FabricAssignment, FABRIC_COLORS } from '@/components/design/FabricBlockingPanel';
 import {
   silhouetteLibrary,
   necklineLibrary,
@@ -130,6 +131,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const [selectedProcesses, setSelectedProcesses] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [fabricAssignments, setFabricAssignments] = useState<FabricAssignment[]>([]);
   const techpackRef = useRef<HTMLDivElement>(null);
 
   // Get selected capsule and its composition settings
@@ -538,6 +540,146 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
     const fabricId = shirtConfig.inductedFabricId || lowersConfig.inductedFabricId || dupattaConfig.inductedFabricId;
     return fabricId ? getFabricById(fabricId) : null;
   }, [shirtConfig, lowersConfig, dupattaConfig, getFabricById]);
+
+  // Build selected fabrics list for FabricBlockingPanel
+  const selectedFabricsForBlocking = useMemo(() => {
+    const fabrics: { componentType: string; componentLabel: string; fabric?: FabricEntry }[] = [];
+    
+    if (selectedCategory === 'onePiece') {
+      if (shirtConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'shirt',
+          componentLabel: 'Shirt / Kameez',
+          fabric: getFabricById(shirtConfig.inductedFabricId) || undefined,
+        });
+      }
+    } else if (selectedCategory === 'twoPiece') {
+      if (shirtConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'shirt',
+          componentLabel: 'Shirt',
+          fabric: getFabricById(shirtConfig.inductedFabricId) || undefined,
+        });
+      }
+      if (selectedTwoPieceType === 'shirt-lowers' && lowersConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'lowers',
+          componentLabel: 'Lowers / Trousers',
+          fabric: getFabricById(lowersConfig.inductedFabricId) || undefined,
+        });
+      }
+      if (selectedTwoPieceType === 'shirt-dupatta' && dupattaConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'dupatta',
+          componentLabel: 'Dupatta',
+          fabric: getFabricById(dupattaConfig.inductedFabricId) || undefined,
+        });
+      }
+    } else if (selectedCategory === 'threePiece') {
+      if (shirtConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'shirt',
+          componentLabel: 'Shirt',
+          fabric: getFabricById(shirtConfig.inductedFabricId) || undefined,
+        });
+      }
+      if (lowersConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'lowers',
+          componentLabel: 'Lowers',
+          fabric: getFabricById(lowersConfig.inductedFabricId) || undefined,
+        });
+      }
+      if (dupattaConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'dupatta',
+          componentLabel: 'Dupatta',
+          fabric: getFabricById(dupattaConfig.inductedFabricId) || undefined,
+        });
+      }
+    } else if (selectedCategory === 'lehenga-set') {
+      if (lehengaConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'lehenga',
+          componentLabel: 'Lehenga',
+          fabric: getFabricById(lehengaConfig.inductedFabricId) || undefined,
+        });
+      }
+      if (choliConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'choli',
+          componentLabel: 'Choli',
+          fabric: getFabricById(choliConfig.inductedFabricId) || undefined,
+        });
+      }
+      if (dupattaConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'dupatta',
+          componentLabel: 'Dupatta',
+          fabric: getFabricById(dupattaConfig.inductedFabricId) || undefined,
+        });
+      }
+    } else if (selectedCategory === 'saree-set') {
+      if (sareeConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'saree',
+          componentLabel: 'Saree',
+          fabric: getFabricById(sareeConfig.inductedFabricId) || undefined,
+        });
+      }
+      if (blouseConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'blouse',
+          componentLabel: 'Blouse',
+          fabric: getFabricById(blouseConfig.inductedFabricId) || undefined,
+        });
+      }
+    } else if (selectedCategory === 'dupattas') {
+      if (dupattaConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'dupatta',
+          componentLabel: 'Dupatta',
+          fabric: getFabricById(dupattaConfig.inductedFabricId) || undefined,
+        });
+      }
+    } else if (selectedCategory === 'lowers') {
+      if (lowersConfig.inductedFabricId) {
+        fabrics.push({
+          componentType: 'lowers',
+          componentLabel: 'Lowers',
+          fabric: getFabricById(lowersConfig.inductedFabricId) || undefined,
+        });
+      }
+    }
+    
+    // Add lining fabric if configured
+    if (liningConfig.enabled && liningConfig.fabricId) {
+      fabrics.push({
+        componentType: 'lining',
+        componentLabel: 'Lining',
+        fabric: getFabricById(liningConfig.fabricId) || undefined,
+      });
+    }
+    
+    // Add slip fabric if configured
+    if (slipConfig.enabled && slipConfig.fabricId) {
+      fabrics.push({
+        componentType: 'slip',
+        componentLabel: 'Slip',
+        fabric: getFabricById(slipConfig.fabricId) || undefined,
+      });
+    }
+    
+    return fabrics;
+  }, [selectedCategory, selectedTwoPieceType, shirtConfig, lowersConfig, dupattaConfig, lehengaConfig, choliConfig, sareeConfig, blouseConfig, liningConfig, slipConfig, getFabricById]);
+
+  // Generate fabric numbers for canvas from assignments
+  const fabricNumbersForCanvas = useMemo(() => {
+    return fabricAssignments.map(a => ({
+      number: a.fabricNumber,
+      color: a.color,
+    }));
+  }, [fabricAssignments]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1167,6 +1309,14 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                 )}
               </div>
 
+              {/* Fabric Blocking Panel */}
+              {selectedFabricsForBlocking.length > 0 && (
+                <FabricBlockingPanel
+                  selectedFabrics={selectedFabricsForBlocking}
+                  onFabricNumbersChange={setFabricAssignments}
+                />
+              )}
+
               {/* Techpack Annotation Canvas */}
               {primarySilhouette?.technicalDrawing && (
                 <div className="space-y-3">
@@ -1181,13 +1331,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     imageUrl={primarySilhouette.technicalDrawing}
                     width={550}
                     height={450}
-                    fabricNumbers={[
-                      { number: 1, color: '#3b82f6' },
-                      { number: 2, color: '#22c55e' },
-                      { number: 3, color: '#f97316' },
-                      { number: 4, color: '#a855f7' },
-                      { number: 5, color: '#ef4444' },
-                    ]}
+                    fabricNumbers={fabricNumbersForCanvas.length > 0 ? fabricNumbersForCanvas : FABRIC_COLORS.slice(0, 5).map(c => ({ number: c.number, color: c.color }))}
                   />
                 </div>
               )}
