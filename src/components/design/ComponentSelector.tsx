@@ -11,16 +11,22 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, IndianRupee, Calculator, CheckCircle2, Plus } from 'lucide-react';
+import { AlertCircle, IndianRupee, Calculator, CheckCircle2, Plus, X } from 'lucide-react';
 import { useSilhouetteStore, Silhouette, SilhouetteCategory } from '@/data/silhouetteStore';
 import { FabricEntry } from '@/data/fabricStore';
 
 export type ComponentType = 'shirt' | 'lowers' | 'dupatta' | 'slip' | 'lining' | 'lehenga' | 'choli' | 'saree' | 'blouse';
 
+export interface AdditionalFabric {
+  id: string;
+  inductedFabricId: string;
+}
+
 export interface ComponentConfig {
   silhouetteId: string;
   fabricId: string;
   inductedFabricId?: string;
+  additionalFabrics?: AdditionalFabric[];
 }
 
 interface ComponentSelectorProps {
@@ -72,11 +78,74 @@ export const ComponentSelector = ({
   // Get selected fabric
   const selectedFabric = availableFabrics.find(f => f.id === value.inductedFabricId);
   
-  // Calculate cost
+  // Get all selected fabrics (primary + additional)
+  const allSelectedFabrics = useMemo(() => {
+    const fabrics: { fabric: FabricEntry; label: string }[] = [];
+    if (selectedFabric) {
+      fabrics.push({ fabric: selectedFabric, label: 'Primary' });
+    }
+    value.additionalFabrics?.forEach((af, index) => {
+      const fabric = availableFabrics.find(f => f.id === af.inductedFabricId);
+      if (fabric) {
+        fabrics.push({ fabric, label: `Fabric ${index + 2}` });
+      }
+    });
+    return fabrics;
+  }, [selectedFabric, value.additionalFabrics, availableFabrics]);
+  
+  // Calculate cost for all fabrics
   const costCalculation = useMemo(() => {
-    if (!value.silhouetteId || !selectedFabric?.technicalSpecs?.costPerMeter) return null;
-    return calculateSilhouetteCost(value.silhouetteId, selectedFabric.technicalSpecs.costPerMeter);
-  }, [value.silhouetteId, selectedFabric, calculateSilhouetteCost]);
+    if (!value.silhouetteId || allSelectedFabrics.length === 0) return null;
+    
+    let totalFabricCost = 0;
+    let totalStitchingCost = 0;
+    
+    allSelectedFabrics.forEach(({ fabric }) => {
+      if (fabric.technicalSpecs?.costPerMeter) {
+        const calc = calculateSilhouetteCost(value.silhouetteId, fabric.technicalSpecs.costPerMeter);
+        if (calc) {
+          totalFabricCost += calc.fabricCost;
+          totalStitchingCost = calc.stitchingCost; // Stitching cost is the same regardless of fabric count
+        }
+      }
+    });
+    
+    return {
+      fabricCost: totalFabricCost,
+      stitchingCost: totalStitchingCost,
+      totalCost: totalFabricCost + totalStitchingCost
+    };
+  }, [value.silhouetteId, allSelectedFabrics, calculateSilhouetteCost]);
+
+  // Add another fabric
+  const handleAddFabric = () => {
+    const newFabric: AdditionalFabric = {
+      id: crypto.randomUUID(),
+      inductedFabricId: ''
+    };
+    onChange({
+      ...value,
+      additionalFabrics: [...(value.additionalFabrics || []), newFabric]
+    });
+  };
+
+  // Remove additional fabric
+  const handleRemoveFabric = (fabricId: string) => {
+    onChange({
+      ...value,
+      additionalFabrics: value.additionalFabrics?.filter(f => f.id !== fabricId) || []
+    });
+  };
+
+  // Update additional fabric
+  const handleUpdateAdditionalFabric = (fabricId: string, inductedFabricId: string) => {
+    onChange({
+      ...value,
+      additionalFabrics: value.additionalFabrics?.map(f => 
+        f.id === fabricId ? { ...f, inductedFabricId } : f
+      ) || []
+    });
+  };
 
   return (
     <Card className="p-4 space-y-4 bg-card/50 border-border">
@@ -128,10 +197,10 @@ export const ComponentSelector = ({
         )}
       </div>
 
-      {/* Fabric Selection */}
+      {/* Primary Fabric Selection */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-sm">Fabric *</Label>
+          <Label className="text-sm">Primary Fabric *</Label>
           <Button
             variant="ghost"
             size="sm"
@@ -164,9 +233,9 @@ export const ComponentSelector = ({
             })}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select fabric" />
+              <SelectValue placeholder="Select primary fabric" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-popover border border-border z-50">
               {availableFabrics.map((fabric) => (
                 <SelectItem key={fabric.id} value={fabric.id}>
                   <div className="flex items-center gap-2">
@@ -183,6 +252,64 @@ export const ComponentSelector = ({
           </Select>
         )}
       </div>
+
+      {/* Additional Fabrics */}
+      {value.additionalFabrics && value.additionalFabrics.length > 0 && (
+        <div className="space-y-3">
+          {value.additionalFabrics.map((af, index) => (
+            <div key={af.id} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Fabric {index + 2}</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemoveFabric(af.id)}
+                  className="h-6 px-2 text-xs text-destructive hover:text-destructive/80"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Remove
+                </Button>
+              </div>
+              <Select
+                value={af.inductedFabricId || ''}
+                onValueChange={(fabricId) => handleUpdateAdditionalFabric(af.id, fabricId)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={`Select fabric ${index + 2}`} />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border border-border z-50">
+                  {availableFabrics.map((fabric) => (
+                    <SelectItem key={fabric.id} value={fabric.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{fabric.fabricName}</span>
+                        {fabric.technicalSpecs?.costPerMeter && (
+                          <span className="text-xs text-muted-foreground">
+                            ₹{fabric.technicalSpecs.costPerMeter}/m
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Another Fabric Button */}
+      {availableFabrics.length > 0 && value.inductedFabricId && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleAddFabric}
+          className="w-full gap-2 border-dashed"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add Another Fabric
+        </Button>
+      )}
 
       {/* Cost Breakdown */}
       {showCostBreakdown && selectedSilhouette && costCalculation && (
