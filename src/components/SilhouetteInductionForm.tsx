@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,8 @@ import {
   Ruler,
   DollarSign,
   Calculator,
+  ImageIcon,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -70,6 +72,191 @@ const STEP_CONFIG: Record<Step, { title: string; description: string }> = {
     description: 'Complete grading and cost calculation',
   },
 };
+
+// Sketch Uploader Component
+interface SketchUploaderProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+const SketchUploader = ({ value, onChange }: SketchUploaderProps) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [urlMode, setUrlMode] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+
+  const handleFileSelect = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      toast.error('File size must be less than 10MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      onChange(result);
+      toast.success('Sketch uploaded successfully');
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read file');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileSelect(file);
+    }
+  };
+
+  const handleUrlSubmit = () => {
+    if (urlInput.trim()) {
+      onChange(urlInput.trim());
+      setUrlInput('');
+      setUrlMode(false);
+      toast.success('URL added');
+    }
+  };
+
+  const handleRemove = () => {
+    onChange('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // If there's already an image, show preview
+  if (value) {
+    return (
+      <div className="relative">
+        <div className="border border-border rounded-lg overflow-hidden bg-muted/30">
+          <div className="aspect-[3/4] max-h-[300px] flex items-center justify-center p-4">
+            <img
+              src={value}
+              alt="Sketch preview"
+              className="max-w-full max-h-full object-contain rounded"
+            />
+          </div>
+          <div className="p-2 border-t border-border bg-muted/50 flex items-center justify-between">
+            <span className="text-xs text-muted-foreground truncate flex-1">
+              {value.startsWith('data:') ? 'Uploaded image' : value}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRemove}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // URL input mode
+  if (urlMode) {
+    return (
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <Input
+            value={urlInput}
+            onChange={(e) => setUrlInput(e.target.value)}
+            placeholder="https://example.com/sketch.jpg"
+            onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
+          />
+          <Button type="button" onClick={handleUrlSubmit} size="sm">
+            Add
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => setUrlMode(false)}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Upload dropzone
+  return (
+    <div className="space-y-2">
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onClick={() => fileInputRef.current?.click()}
+        className={`
+          border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
+          ${isDragging 
+            ? 'border-primary bg-primary/5' 
+            : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50'
+          }
+        `}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleInputChange}
+          className="hidden"
+        />
+        <div className="flex flex-col items-center gap-2">
+          <div className="p-3 bg-muted rounded-full">
+            <ImageIcon className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <div>
+            <p className="font-medium text-sm">
+              Drop sketch image here or click to browse
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Supports JPG, PNG, WebP (max 10MB)
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex items-center justify-center">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setUrlMode(true)}
+          className="text-xs text-muted-foreground"
+        >
+          <LinkIcon className="h-3 w-3 mr-1" />
+          Or paste image URL
+        </Button>
+      </div>
+    </div>
+  );
+};
+
 
 export const SilhouetteInductionForm = ({
   open,
@@ -334,18 +521,11 @@ export const SilhouetteInductionForm = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="sketch">Sketch File (URL)</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="sketch"
-                  value={sketchFile}
-                  onChange={(e) => setSketchFile(e.target.value)}
-                  placeholder="https://..."
-                />
-                <Button type="button" variant="outline" size="icon">
-                  <Upload className="h-4 w-4" />
-                </Button>
-              </div>
+              <Label>Sketch Image *</Label>
+              <SketchUploader
+                value={sketchFile}
+                onChange={setSketchFile}
+              />
             </div>
 
             <div className="space-y-2">
