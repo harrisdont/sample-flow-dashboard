@@ -1,12 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Calendar, Layers } from 'lucide-react';
+import { LayoutDashboard, Calendar, Layers, Scissors } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/seasonal-planning', label: 'Seasonal Planning', icon: Calendar },
   { path: '/fabric-induction', label: 'Fabric Induction', icon: Layers },
+  { path: '/sampling', label: 'Sampling', icon: Scissors },
 ];
 
 interface MainNavProps {

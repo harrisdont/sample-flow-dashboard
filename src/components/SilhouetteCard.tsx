@@ -34,7 +34,7 @@ interface SilhouetteCardProps {
 export const SilhouetteCard = ({ silhouette }: SilhouetteCardProps) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const { calculateSilhouetteCost } = useSilhouetteStore();
-  const { fabricEntries } = useFabricStore();
+  const { getFabricById } = useFabricStore();
 
   // Get linked fabric cost if available
   const linkedFabric = silhouette.linkedFabricId 
