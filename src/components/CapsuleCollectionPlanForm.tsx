@@ -48,6 +48,11 @@ import {
   getRequiredFabricFields,
   FABRIC_FIELD_LABELS,
 } from '@/data/capsuleCollectionData';
+import { 
+  useFabricStore, 
+  ComponentType, 
+  getInitialStatus,
+} from '@/data/fabricStore';
 import { toast } from 'sonner';
 
 interface CapsuleCollectionPlanFormProps {
@@ -109,6 +114,7 @@ const CapsuleCollectionPlanForm = ({
   onSave,
 }: CapsuleCollectionPlanFormProps) => {
   const { getCapsuleByLine, addCapsule, updateCapsule } = useCapsuleStore();
+  const { addFabricEntry, getFabricsByCollection } = useFabricStore();
   const existingCapsule = getCapsuleByLine(lineId);
 
   const [collectionName, setCollectionName] = useState(existingCapsule?.collectionName || '');
@@ -282,12 +288,84 @@ const CapsuleCollectionPlanForm = ({
       updatedAt: new Date(),
     };
 
+    const isNewCapsule = !existingCapsule;
+    
     if (existingCapsule) {
       updateCapsule(capsuleId, capsuleData);
       toast.success('Collection plan updated');
     } else {
       addCapsule(capsuleData);
       toast.success('Collection plan saved');
+    }
+
+    // Auto-create fabric entries for new collections
+    if (isNewCapsule) {
+      const requiredFields = getRequiredFabricFields(categoryDesigns, categoryComposition);
+      const existingFabrics = getFabricsByCollection(capsuleId);
+      
+      // Map fabric field to component type
+      const fieldToComponentType: Record<string, ComponentType> = {
+        shirtFabric: 'shirt',
+        lowersFabric: 'lowers',
+        dupattaFabric: 'dupatta',
+        lehengaFabric: 'lehenga',
+        choliFabric: 'choli',
+        sareeFabric: 'saree',
+        blouseFabric: 'blouse',
+        liningFabric: 'lining',
+        slipFabric: 'slip',
+        petticoatFabric: 'petticoat',
+        trimsFabric: 'trims',
+      };
+      
+      // Calculate fabric deadline (from schedule)
+      const schedule = calculateBackwardsSchedule(targetDate, selectedTechniques);
+      const fabricMilestone = schedule?.milestones.find(m => m.id === 'fabric-ordering');
+      const fabricDeadline = fabricMilestone?.startDate;
+      
+      // Create fabric entries for each required field
+      requiredFields.forEach((field) => {
+        const componentType = fieldToComponentType[field];
+        if (!componentType) return;
+        
+        // Check if fabric entry already exists for this component
+        const exists = existingFabrics.some(f => f.componentType === componentType);
+        if (exists) return;
+        
+        // Get fabric name from fabric requirements if entered
+        const fabricName = fabricRequirements[field as keyof FabricRequirements] || '';
+        
+        // Only create entry if there's a fabric name or it's a required component
+        if (fabricName || ['shirt', 'lowers', 'dupatta'].includes(componentType)) {
+          addFabricEntry({
+            collectionId: capsuleId,
+            collectionName,
+            lineId,
+            lineName,
+            lineColor,
+            componentType,
+            fabricName: fabricName || `${FABRIC_FIELD_LABELS[field as keyof FabricRequirements]} (TBD)`,
+            fabricComposition: '',
+            fabricType: 'greige',
+            status: 'pending-print-plan',
+            artworkSubmitted: false,
+            baseTreatmentType: 'printing',
+            baseTreatmentComplete: false,
+            surfaceTreatments: [],
+            surfaceTreatmentComplete: false,
+            fabricDeadline,
+          });
+        }
+      });
+      
+      const createdCount = requiredFields.filter(f => {
+        const componentType = fieldToComponentType[f];
+        return componentType && (['shirt', 'lowers', 'dupatta'].includes(componentType) || fabricRequirements[f as keyof FabricRequirements]);
+      }).length;
+      
+      if (createdCount > 0) {
+        toast.info(`${createdCount} fabric entries created for tracking`);
+      }
     }
 
     onSave?.();
