@@ -38,6 +38,14 @@ interface TechpackPreviewProps {
   recommendedSPI?: number;
   ironingInstructions?: IroningInstruction;
   handlingNotes?: string;
+  // Canvas annotations
+  annotatedDrawingUrl?: string;
+  fabricLegend?: {
+    number: number;
+    fabricName: string;
+    color: string;
+    componentType: string;
+  }[];
 }
 
 export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
@@ -60,6 +68,8 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
       recommendedSPI,
       ironingInstructions,
       handlingNotes,
+      annotatedDrawingUrl,
+      fabricLegend,
     },
     ref
   ) => {
@@ -133,32 +143,71 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
                 </div>
               </div>
               
-              {/* Technical Drawings */}
-              {silhouetteData?.technicalDrawing && (
+              {/* Technical Drawings - Show annotated version if available */}
+              {(annotatedDrawingUrl || silhouetteData?.technicalDrawing) && (
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Technical Drawings</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <p className="text-xs text-center text-muted-foreground font-medium">Front View</p>
-                      <div className="aspect-square bg-background/50 rounded border border-border p-4 flex items-center justify-center">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {annotatedDrawingUrl ? 'Annotated Technical Drawing' : 'Technical Drawings'}
+                  </p>
+                  
+                  {annotatedDrawingUrl ? (
+                    <div className="space-y-3">
+                      <div className="bg-background/50 rounded border border-border p-4">
                         <img
-                          src={silhouetteData.technicalDrawing}
-                          alt={`${silhouetteData.name} - Front`}
-                          className="w-full h-full object-contain"
+                          src={annotatedDrawingUrl}
+                          alt="Annotated Technical Drawing"
+                          className="w-full h-auto object-contain"
                         />
                       </div>
+                      
+                      {/* Fabric Legend */}
+                      {fabricLegend && fabricLegend.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-muted-foreground">Fabric Placement Legend</p>
+                          <div className="flex flex-wrap gap-2">
+                            {fabricLegend.map((item) => (
+                              <div
+                                key={item.number}
+                                className="flex items-center gap-2 px-2 py-1 bg-muted/50 rounded text-xs"
+                              >
+                                <div
+                                  className="w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-xs"
+                                  style={{ backgroundColor: item.color }}
+                                >
+                                  {item.number}
+                                </div>
+                                <span className="font-medium">{item.fabricName}</span>
+                                <span className="text-muted-foreground">({item.componentType})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-xs text-center text-muted-foreground font-medium">Back View</p>
-                      <div className="aspect-square bg-background/50 rounded border border-border p-4 flex items-center justify-center">
-                        <img
-                          src={silhouetteData.technicalDrawing}
-                          alt={`${silhouetteData.name} - Back`}
-                          className="w-full h-full object-contain"
-                        />
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <p className="text-xs text-center text-muted-foreground font-medium">Front View</p>
+                        <div className="aspect-square bg-background/50 rounded border border-border p-4 flex items-center justify-center">
+                          <img
+                            src={silhouetteData?.technicalDrawing}
+                            alt={`${silhouetteData?.name} - Front`}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs text-center text-muted-foreground font-medium">Back View</p>
+                        <div className="aspect-square bg-background/50 rounded border border-border p-4 flex items-center justify-center">
+                          <img
+                            src={silhouetteData?.technicalDrawing}
+                            alt={`${silhouetteData?.name} - Back`}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </div>
