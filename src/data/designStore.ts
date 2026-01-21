@@ -1,12 +1,62 @@
 import { create } from 'zustand';
+import { TrimApplication } from './trimsStore';
+import { ClosureSpecification } from './accessoryStore';
+import { LiningConfig, SlipConfig } from '@/components/design/LiningConfigurator';
+
+// Component specification for multi-piece designs
+export interface ComponentSpec {
+  silhouetteId: string;
+  fabricId: string;
+  inductedFabricId?: string;
+  trims: TrimApplication[];
+  closures: ClosureSpecification[];
+  customModifications?: {
+    neckline?: string;
+    sleeve?: string;
+    seamFinish?: string;
+  };
+}
+
+// Fabric assignment for multi-fabric blocking
+export interface FabricAssignment {
+  fabricId: string;
+  fabricNumber: number;
+  componentType: string;
+  sections?: string[];
+}
 
 export interface Design {
   id: string;
   collectionId: string;
   silhouetteId: string;
   fabricId: string;
-  inductedFabricId?: string; // Links to inducted fabric for enhanced specs
-  category: 'onePiece' | 'twoPiece' | 'threePiece' | 'dupattas' | 'lowers';
+  inductedFabricId?: string;
+  category: 'onePiece' | 'twoPiece' | 'threePiece' | 'dupattas' | 'lowers' | 'lehenga-set' | 'saree-set';
+  
+  // Multi-piece components (new)
+  components?: {
+    shirt?: ComponentSpec;
+    lowers?: ComponentSpec;
+    dupatta?: ComponentSpec;
+    slip?: ComponentSpec;
+    lining?: ComponentSpec;
+    lehenga?: ComponentSpec;
+    choli?: ComponentSpec;
+    saree?: ComponentSpec;
+    blouse?: ComponentSpec;
+  };
+  
+  // Fabric assignments for color/print blocking
+  fabricAssignments?: FabricAssignment[];
+  
+  // Trims & closures (for single-piece or overall)
+  trims?: TrimApplication[];
+  closures?: ClosureSpecification[];
+  
+  // Lining and slip config
+  liningConfig?: LiningConfig;
+  slipConfig?: SlipConfig;
+  
   processes: string[];
   isCustom: boolean;
   neckline?: string;
@@ -63,6 +113,8 @@ export const useDesignStore = create<DesignStore>((set, get) => ({
       threePiece: 0,
       dupattas: 0,
       lowers: 0,
+      'lehenga-set': 0,
+      'saree-set': 0,
     };
     
     collectionDesigns.forEach(design => {

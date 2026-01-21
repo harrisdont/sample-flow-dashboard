@@ -20,31 +20,45 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { Card } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { TechpackPreview } from '@/components/TechpackPreview';
-import { useCapsuleStore, CategoryDesigns } from '@/data/capsuleCollectionData';
-import { useDesignStore, Design } from '@/data/designStore';
-import { useFabricStore, FabricEntry, PrintClassification, IroningInstruction } from '@/data/fabricStore';
+import { useCapsuleStore, CategoryDesigns, TwoPieceComposition } from '@/data/capsuleCollectionData';
+import { useDesignStore, Design, ComponentSpec } from '@/data/designStore';
+import { useFabricStore, FabricEntry, ComponentType as FabricComponentType } from '@/data/fabricStore';
 import { useSilhouetteStore } from '@/data/silhouetteStore';
+import { TrimApplication } from '@/data/trimsStore';
+import { ClosureSpecification } from '@/data/accessoryStore';
+import { ComponentSelector, ComponentConfig, ComponentType } from '@/components/design/ComponentSelector';
+import { TrimSelector } from '@/components/design/TrimSelector';
+import { ClosureSelector } from '@/components/design/ClosureSelector';
+import { LiningConfigurator, LiningConfig, SlipConfig } from '@/components/design/LiningConfigurator';
 import {
   silhouetteLibrary,
   necklineLibrary,
   sleeveLibrary,
   seamFinishLibrary,
-  fabricLibrary,
 } from '@/data/libraryData';
 import { toast } from 'sonner';
-import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle, CheckCircle2, IndianRupee, Calculator } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle, CheckCircle2, IndianRupee, Calculator, Palette } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-type DesignCategory = 'onePiece' | 'twoPiece' | 'threePiece' | 'dupattas' | 'lowers';
+type DesignCategory = 'onePiece' | 'twoPiece' | 'threePiece' | 'dupattas' | 'lowers' | 'lehenga-set' | 'saree-set';
 
 const CATEGORY_LABELS: Record<DesignCategory, string> = {
-  onePiece: '1-Piece',
+  onePiece: '1-Piece (Shirt/Kameez/Top)',
   twoPiece: '2-Piece',
   threePiece: '3-Piece',
   dupattas: 'Dupattas',
   lowers: 'Lowers',
+  'lehenga-set': 'Lehenga Set',
+  'saree-set': 'Saree Set',
+};
+
+const TWO_PIECE_LABELS: Record<TwoPieceComposition, string> = {
+  'shirt-lowers': 'Shirt + Lowers/Trousers',
+  'shirt-dupatta': 'Shirt + Dupatta',
 };
 
 interface NewDesignFormProps {
@@ -52,7 +66,24 @@ interface NewDesignFormProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
+
+const defaultLiningConfig: LiningConfig = {
+  enabled: false,
+  coverage: 'yoke',
+  includeSleeves: false,
+  finish: 'bound-edges',
+};
+
+const defaultSlipConfig: SlipConfig = {
+  enabled: false,
+};
+
+const defaultComponentConfig: ComponentConfig = {
+  silhouetteId: '',
+  fabricId: '',
+  inductedFabricId: undefined,
+};
 
 export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const capsules = useCapsuleStore((state) => state.capsules);
@@ -64,9 +95,29 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const [step, setStep] = useState<Step>(1);
   const [selectedCollection, setSelectedCollection] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<DesignCategory | ''>('');
-  const [selectedSilhouette, setSelectedSilhouette] = useState('');
-  const [selectedFabric, setSelectedFabric] = useState('');
-  const [selectedInductedFabric, setSelectedInductedFabric] = useState<FabricEntry | null>(null);
+  const [selectedTwoPieceType, setSelectedTwoPieceType] = useState<TwoPieceComposition | ''>('');
+  
+  // Component configurations for multi-piece
+  const [shirtConfig, setShirtConfig] = useState<ComponentConfig>(defaultComponentConfig);
+  const [lowersConfig, setLowersConfig] = useState<ComponentConfig>(defaultComponentConfig);
+  const [dupattaConfig, setDupattaConfig] = useState<ComponentConfig>(defaultComponentConfig);
+  const [lehengaConfig, setLehengaConfig] = useState<ComponentConfig>(defaultComponentConfig);
+  const [choliConfig, setCholiConfig] = useState<ComponentConfig>(defaultComponentConfig);
+  const [sareeConfig, setSareeConfig] = useState<ComponentConfig>(defaultComponentConfig);
+  const [blouseConfig, setBlouseConfig] = useState<ComponentConfig>(defaultComponentConfig);
+  
+  // Trims and closures for each component
+  const [shirtTrims, setShirtTrims] = useState<TrimApplication[]>([]);
+  const [lowersTrims, setLowersTrims] = useState<TrimApplication[]>([]);
+  const [dupattaTrims, setDupattaTrims] = useState<TrimApplication[]>([]);
+  const [shirtClosures, setShirtClosures] = useState<ClosureSpecification[]>([]);
+  const [lowersClosures, setLowersClosures] = useState<ClosureSpecification[]>([]);
+  
+  // Lining and slip
+  const [liningConfig, setLiningConfig] = useState<LiningConfig>(defaultLiningConfig);
+  const [slipConfig, setSlipConfig] = useState<SlipConfig>(defaultSlipConfig);
+  
+  // Legacy fields for backward compatibility
   const [isCustom, setIsCustom] = useState(false);
   const [selectedNeckline, setSelectedNeckline] = useState('');
   const [selectedSleeve, setSelectedSleeve] = useState('');
@@ -80,34 +131,69 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const techpackRef = useRef<HTMLDivElement>(null);
 
-  // Get approved silhouettes from the store
-  const approvedSilhouettes = getApprovedSilhouettes();
+  // Get selected capsule and its composition settings
+  const selectedCapsule = capsules[selectedCollection];
+  const categoryComposition = selectedCapsule?.categoryComposition;
+  const garmentExtras = categoryComposition?.garmentExtras;
 
-  // Get inducted fabrics for selected collection
-  const inductedFabrics = useMemo(() => {
+  // Get inducted fabrics for selected collection, grouped by component type
+  const collectionFabrics = useMemo(() => {
     if (!selectedCollection) return [];
     return getFabricsByCollection(selectedCollection).filter(f => f.status === 'inducted');
   }, [selectedCollection, getFabricsByCollection]);
 
-  // Calculate cost when silhouette and fabric are selected
-  const selectedSilhouetteData = getSilhouetteById(selectedSilhouette);
-  const costCalculation = useMemo(() => {
-    if (!selectedSilhouette || !selectedInductedFabric?.technicalSpecs?.costPerMeter) return null;
-    return calculateSilhouetteCost(selectedSilhouette, selectedInductedFabric.technicalSpecs.costPerMeter);
-  }, [selectedSilhouette, selectedInductedFabric, calculateSilhouetteCost]);
+  const fabricsByComponent = useMemo(() => {
+    const grouped: Record<string, FabricEntry[]> = {
+      shirt: [],
+      lowers: [],
+      dupatta: [],
+      lining: [],
+      slip: [],
+      lehenga: [],
+      choli: [],
+      saree: [],
+      blouse: [],
+    };
+    
+    collectionFabrics.forEach(fabric => {
+      const componentType = fabric.componentType || 'shirt';
+      if (grouped[componentType]) {
+        grouped[componentType].push(fabric);
+      }
+    });
+    
+    return grouped;
+  }, [collectionFabrics]);
 
-  // Fallback: Calculate cost using the silhouette's linked fabric if no inducted fabric is selected
-  const linkedFabricCost = useMemo(() => {
-    if (!selectedSilhouetteData?.linkedFabricId || selectedInductedFabric) return null;
-    const linkedFabric = getFabricById(selectedSilhouetteData.linkedFabricId);
-    if (!linkedFabric?.technicalSpecs?.costPerMeter) return null;
-    return calculateSilhouetteCost(selectedSilhouette, linkedFabric.technicalSpecs.costPerMeter);
-  }, [selectedSilhouetteData, selectedInductedFabric, getFabricById, calculateSilhouetteCost, selectedSilhouette]);
+  // Determine available 2-piece options based on collection settings
+  const available2PieceOptions = useMemo(() => {
+    if (!categoryComposition) return ['shirt-lowers', 'shirt-dupatta'] as TwoPieceComposition[];
+    // If collection has specific setting, use it
+    return [categoryComposition.twoPieceType];
+  }, [categoryComposition]);
 
-  const displayCost = costCalculation || linkedFabricCost;
+  // Auto-select 2-piece type if only one option
+  useMemo(() => {
+    if (selectedCategory === 'twoPiece' && available2PieceOptions.length === 1 && !selectedTwoPieceType) {
+      setSelectedTwoPieceType(available2PieceOptions[0]);
+    }
+  }, [selectedCategory, available2PieceOptions, selectedTwoPieceType]);
+
+  // Get available categories based on collection limits and specialized categories
+  const availableCategories = useMemo(() => {
+    const categories: DesignCategory[] = ['onePiece', 'twoPiece', 'threePiece', 'dupattas', 'lowers'];
+    
+    if (categoryComposition?.specializedCategory === 'lehenga-set' && categoryComposition.specializedCount > 0) {
+      categories.push('lehenga-set');
+    }
+    if (categoryComposition?.specializedCategory === 'saree-set' && categoryComposition.specializedCount > 0) {
+      categories.push('saree-set');
+    }
+    
+    return categories;
+  }, [categoryComposition]);
 
   // Get current collection's category limits and usage
-  const selectedCapsule = capsules[selectedCollection];
   const currentDesignCounts = useMemo(() => {
     if (!selectedCollection) return null;
     return getDesignCountByCategory(selectedCollection);
@@ -115,20 +201,26 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
 
   const categoryLimits = selectedCapsule?.categoryDesigns;
 
-  // Calculate remaining capacity for each category
   const getCategoryCapacity = (category: DesignCategory): { used: number; limit: number; remaining: number } => {
     if (!categoryLimits || !currentDesignCounts) {
       return { used: 0, limit: 0, remaining: 0 };
     }
-    const limit = categoryLimits[category] || 0;
+    
+    // Handle specialized categories
+    if (category === 'lehenga-set' || category === 'saree-set') {
+      const limit = categoryComposition?.specializedCount || 0;
+      const used = currentDesignCounts[category] || 0;
+      return { used, limit, remaining: Math.max(0, limit - used) };
+    }
+    
+    const limit = categoryLimits[category as keyof CategoryDesigns] || 0;
     const used = currentDesignCounts[category] || 0;
     return { used, limit, remaining: Math.max(0, limit - used) };
   };
 
-  // Check if a category has available capacity
   const isCategoryAvailable = (category: DesignCategory): boolean => {
-    const { remaining } = getCategoryCapacity(category);
-    return remaining > 0;
+    const { remaining, limit } = getCategoryCapacity(category);
+    return remaining > 0 || limit > 0;
   };
 
   const availableProcesses = [
@@ -148,6 +240,91 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
     );
   };
 
+  // Get primary silhouette for cost calculation
+  const primarySilhouette = useMemo(() => {
+    if (selectedCategory === 'onePiece' || selectedCategory === 'dupattas' || selectedCategory === 'lowers') {
+      return getSilhouetteById(shirtConfig.silhouetteId);
+    }
+    if (selectedCategory === 'twoPiece' || selectedCategory === 'threePiece') {
+      return getSilhouetteById(shirtConfig.silhouetteId);
+    }
+    if (selectedCategory === 'lehenga-set') {
+      return getSilhouetteById(lehengaConfig.silhouetteId);
+    }
+    if (selectedCategory === 'saree-set') {
+      return getSilhouetteById(sareeConfig.silhouetteId);
+    }
+    return undefined;
+  }, [selectedCategory, shirtConfig, lehengaConfig, sareeConfig, getSilhouetteById]);
+
+  // Calculate total cost across all components
+  const totalCostCalculation = useMemo(() => {
+    let totalFabricCost = 0;
+    let totalStitchingCost = 0;
+    
+    const calculateComponentCost = (config: ComponentConfig, fabrics: FabricEntry[]) => {
+      if (!config.silhouetteId) return { fabric: 0, stitching: 0 };
+      const fabric = fabrics.find(f => f.id === config.inductedFabricId);
+      if (!fabric?.technicalSpecs?.costPerMeter) return { fabric: 0, stitching: 0 };
+      const cost = calculateSilhouetteCost(config.silhouetteId, fabric.technicalSpecs.costPerMeter);
+      return cost ? { fabric: cost.fabricCost, stitching: cost.stitchingCost } : { fabric: 0, stitching: 0 };
+    };
+    
+    // Add costs based on category
+    if (selectedCategory === 'onePiece') {
+      const cost = calculateComponentCost(shirtConfig, fabricsByComponent.shirt);
+      totalFabricCost += cost.fabric;
+      totalStitchingCost += cost.stitching;
+    } else if (selectedCategory === 'twoPiece') {
+      const shirtCost = calculateComponentCost(shirtConfig, fabricsByComponent.shirt);
+      totalFabricCost += shirtCost.fabric;
+      totalStitchingCost += shirtCost.stitching;
+      
+      if (selectedTwoPieceType === 'shirt-lowers') {
+        const lowersCost = calculateComponentCost(lowersConfig, fabricsByComponent.lowers);
+        totalFabricCost += lowersCost.fabric;
+        totalStitchingCost += lowersCost.stitching;
+      } else {
+        const dupattaCost = calculateComponentCost(dupattaConfig, fabricsByComponent.dupatta);
+        totalFabricCost += dupattaCost.fabric;
+        totalStitchingCost += dupattaCost.stitching;
+      }
+    } else if (selectedCategory === 'threePiece') {
+      const shirtCost = calculateComponentCost(shirtConfig, fabricsByComponent.shirt);
+      const lowersCost = calculateComponentCost(lowersConfig, fabricsByComponent.lowers);
+      const dupattaCost = calculateComponentCost(dupattaConfig, fabricsByComponent.dupatta);
+      totalFabricCost += shirtCost.fabric + lowersCost.fabric + dupattaCost.fabric;
+      totalStitchingCost += shirtCost.stitching + lowersCost.stitching + dupattaCost.stitching;
+    } else if (selectedCategory === 'lehenga-set') {
+      const lehengaCost = calculateComponentCost(lehengaConfig, fabricsByComponent.lehenga);
+      const choliCost = calculateComponentCost(choliConfig, fabricsByComponent.choli);
+      const dupattaCost = calculateComponentCost(dupattaConfig, fabricsByComponent.dupatta);
+      totalFabricCost += lehengaCost.fabric + choliCost.fabric + dupattaCost.fabric;
+      totalStitchingCost += lehengaCost.stitching + choliCost.stitching + dupattaCost.stitching;
+    } else if (selectedCategory === 'saree-set') {
+      const sareeCost = calculateComponentCost(sareeConfig, fabricsByComponent.saree);
+      const blouseCost = calculateComponentCost(blouseConfig, fabricsByComponent.blouse);
+      totalFabricCost += sareeCost.fabric + blouseCost.fabric;
+      totalStitchingCost += sareeCost.stitching + blouseCost.stitching;
+    } else if (selectedCategory === 'dupattas') {
+      const dupattaCost = calculateComponentCost(dupattaConfig, fabricsByComponent.dupatta);
+      totalFabricCost += dupattaCost.fabric;
+      totalStitchingCost += dupattaCost.stitching;
+    } else if (selectedCategory === 'lowers') {
+      const lowersCost = calculateComponentCost(lowersConfig, fabricsByComponent.lowers);
+      totalFabricCost += lowersCost.fabric;
+      totalStitchingCost += lowersCost.stitching;
+    }
+    
+    const totalCost = totalFabricCost + totalStitchingCost;
+    return totalCost > 0 ? {
+      fabricCost: totalFabricCost,
+      stitchingCost: totalStitchingCost,
+      totalCost,
+      predictedSellingPrice: Math.round(totalCost * 3.2),
+    } : null;
+  }, [selectedCategory, selectedTwoPieceType, shirtConfig, lowersConfig, dupattaConfig, lehengaConfig, choliConfig, sareeConfig, blouseConfig, fabricsByComponent, calculateSilhouetteCost]);
+
   const validateStep = (currentStep: Step): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -157,17 +334,35 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
       if (selectedCategory && !isCategoryAvailable(selectedCategory)) {
         newErrors.category = `${CATEGORY_LABELS[selectedCategory]} category has reached its limit`;
       }
-      if (!selectedSilhouette) newErrors.silhouette = 'Silhouette is required';
-      if (!selectedFabric) newErrors.fabric = 'Base fabric is required';
+      if (selectedCategory === 'twoPiece' && available2PieceOptions.length > 1 && !selectedTwoPieceType) {
+        newErrors.twoPieceType = 'Select 2-piece composition';
+      }
     }
 
-    if (currentStep === 2 && isCustom) {
-      if (!selectedNeckline) newErrors.neckline = 'Neckline is required for custom modifications';
-      if (!selectedSleeve) newErrors.sleeve = 'Sleeve is required for custom modifications';
-      if (!selectedSeamFinish) newErrors.seamFinish = 'Seam finish is required for custom modifications';
+    if (currentStep === 2) {
+      // Validate component selections based on category
+      if (selectedCategory === 'onePiece') {
+        if (!shirtConfig.silhouetteId) newErrors.shirtSilhouette = 'Silhouette is required';
+        if (!shirtConfig.inductedFabricId && fabricsByComponent.shirt.length > 0) {
+          newErrors.shirtFabric = 'Fabric is required';
+        }
+      } else if (selectedCategory === 'twoPiece') {
+        if (!shirtConfig.silhouetteId) newErrors.shirtSilhouette = 'Shirt silhouette is required';
+        if (selectedTwoPieceType === 'shirt-lowers' && !lowersConfig.silhouetteId) {
+          newErrors.lowersSilhouette = 'Lowers silhouette is required';
+        }
+        if (selectedTwoPieceType === 'shirt-dupatta' && !dupattaConfig.silhouetteId) {
+          newErrors.dupattaSilhouette = 'Dupatta silhouette is required';
+        }
+      } else if (selectedCategory === 'threePiece') {
+        if (!shirtConfig.silhouetteId) newErrors.shirtSilhouette = 'Shirt silhouette is required';
+        if (!lowersConfig.silhouetteId) newErrors.lowersSilhouette = 'Lowers silhouette is required';
+        if (!dupattaConfig.silhouetteId) newErrors.dupattaSilhouette = 'Dupatta silhouette is required';
+      }
+      // Similar validation for other categories...
     }
 
-    if (currentStep === 3) {
+    if (currentStep === 4) {
       if (!sampleType) newErrors.sampleType = 'Sample type is required';
       if (fastTrack && !fastTrackReason.trim()) {
         newErrors.fastTrackReason = 'Fast track reason is required';
@@ -183,7 +378,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
       toast.error('Please complete all required fields');
       return;
     }
-    if (step < 3) setStep((step + 1) as Step);
+    if (step < 4) setStep((step + 1) as Step);
   };
 
   const handleBack = () => {
@@ -224,20 +419,54 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   };
 
   const handleSubmit = () => {
-    if (!validateStep(3)) {
+    if (!validateStep(4)) {
       toast.error('Please complete all required fields');
       return;
     }
 
-    // Create and store the design
+    // Build components based on category
+    const components: Design['components'] = {};
+    
+    const buildComponentSpec = (config: ComponentConfig, trims: TrimApplication[], closures: ClosureSpecification[]): ComponentSpec => ({
+      silhouetteId: config.silhouetteId,
+      fabricId: config.fabricId,
+      inductedFabricId: config.inductedFabricId,
+      trims,
+      closures,
+    });
+    
+    if (selectedCategory === 'onePiece' || selectedCategory === 'twoPiece' || selectedCategory === 'threePiece') {
+      components.shirt = buildComponentSpec(shirtConfig, shirtTrims, shirtClosures);
+    }
+    if ((selectedCategory === 'twoPiece' && selectedTwoPieceType === 'shirt-lowers') || selectedCategory === 'threePiece' || selectedCategory === 'lowers') {
+      components.lowers = buildComponentSpec(lowersConfig, lowersTrims, lowersClosures);
+    }
+    if ((selectedCategory === 'twoPiece' && selectedTwoPieceType === 'shirt-dupatta') || selectedCategory === 'threePiece' || selectedCategory === 'dupattas') {
+      components.dupatta = buildComponentSpec(dupattaConfig, dupattaTrims, []);
+    }
+    if (selectedCategory === 'lehenga-set') {
+      components.lehenga = buildComponentSpec(lehengaConfig, [], []);
+      components.choli = buildComponentSpec(choliConfig, [], shirtClosures);
+      components.dupatta = buildComponentSpec(dupattaConfig, dupattaTrims, []);
+    }
+    if (selectedCategory === 'saree-set') {
+      components.saree = buildComponentSpec(sareeConfig, [], []);
+      components.blouse = buildComponentSpec(blouseConfig, [], shirtClosures);
+    }
+
     const designId = `design-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newDesign: Design = {
       id: designId,
       collectionId: selectedCollection,
-      silhouetteId: selectedSilhouette,
-      fabricId: selectedFabric,
-      inductedFabricId: selectedInductedFabric?.id,
+      silhouetteId: shirtConfig.silhouetteId || lowersConfig.silhouetteId || dupattaConfig.silhouetteId,
+      fabricId: shirtConfig.fabricId || lowersConfig.fabricId || dupattaConfig.fabricId,
+      inductedFabricId: shirtConfig.inductedFabricId,
       category: selectedCategory as DesignCategory,
+      components,
+      trims: shirtTrims,
+      closures: shirtClosures,
+      liningConfig: liningConfig.enabled ? liningConfig : undefined,
+      slipConfig: slipConfig.enabled ? slipConfig : undefined,
       processes: selectedProcesses,
       isCustom,
       neckline: isCustom ? selectedNeckline : undefined,
@@ -261,13 +490,28 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
     });
     
     onOpenChange(false);
-    // Reset form
+    resetForm();
+  };
+
+  const resetForm = () => {
     setStep(1);
     setSelectedCollection('');
     setSelectedCategory('');
-    setSelectedSilhouette('');
-    setSelectedFabric('');
-    setSelectedInductedFabric(null);
+    setSelectedTwoPieceType('');
+    setShirtConfig(defaultComponentConfig);
+    setLowersConfig(defaultComponentConfig);
+    setDupattaConfig(defaultComponentConfig);
+    setLehengaConfig(defaultComponentConfig);
+    setCholiConfig(defaultComponentConfig);
+    setSareeConfig(defaultComponentConfig);
+    setBlouseConfig(defaultComponentConfig);
+    setShirtTrims([]);
+    setLowersTrims([]);
+    setDupattaTrims([]);
+    setShirtClosures([]);
+    setLowersClosures([]);
+    setLiningConfig(defaultLiningConfig);
+    setSlipConfig(defaultSlipConfig);
     setIsCustom(false);
     setSelectedNeckline('');
     setSelectedSleeve('');
@@ -278,42 +522,45 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
     setFastTrackReason('');
     setSelectedProcesses([]);
     setErrors({});
-    setAdditionalNotes('');
-    setFastTrack(false);
-    setFastTrackReason('');
-    setSelectedProcesses([]);
-    setErrors({});
   };
 
-  // For TechpackPreview compatibility with library format
-  const selectedSilhouetteForPreview = selectedSilhouetteData ? {
-    id: selectedSilhouetteData.id,
-    code: selectedSilhouetteData.code,
-    name: selectedSilhouetteData.name,
-    category: selectedSilhouetteData.category,
-    technicalDrawing: selectedSilhouetteData.technicalDrawing,
-  } : silhouetteLibrary.find(s => s.id === selectedSilhouette);
+  // For TechpackPreview compatibility
+  const selectedSilhouetteForPreview = primarySilhouette ? {
+    id: primarySilhouette.id,
+    code: primarySilhouette.code,
+    name: primarySilhouette.name,
+    category: primarySilhouette.category,
+    technicalDrawing: primarySilhouette.technicalDrawing,
+  } : silhouetteLibrary.find(s => s.id === shirtConfig.silhouetteId);
+
+  const primaryFabric = useMemo(() => {
+    const fabricId = shirtConfig.inductedFabricId || lowersConfig.inductedFabricId || dupattaConfig.inductedFabricId;
+    return fabricId ? getFabricById(fabricId) : null;
+  }, [shirtConfig, lowersConfig, dupattaConfig, getFabricById]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">New Design Submission</DialogTitle>
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2 mt-4 flex-wrap">
             <Badge variant={step === 1 ? 'default' : 'secondary'}>
-              Step 1: Selection
+              Step 1: Category
             </Badge>
             <Badge variant={step === 2 ? 'default' : 'secondary'}>
-              Step 2: Customization
+              Step 2: Components
             </Badge>
             <Badge variant={step === 3 ? 'default' : 'secondary'}>
-              Step 3: Demand & Submission
+              Step 3: Details & Trims
+            </Badge>
+            <Badge variant={step === 4 ? 'default' : 'secondary'}>
+              Step 4: Submission
             </Badge>
           </div>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Step 1: Collection and Silhouette Selection */}
+          {/* Step 1: Collection and Category Selection */}
           {step === 1 && (
             <div className="space-y-6">
               <div className="space-y-2">
@@ -322,6 +569,8 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                   value={selectedCollection}
                   onValueChange={(value) => {
                     setSelectedCollection(value);
+                    setSelectedCategory('');
+                    setSelectedTwoPieceType('');
                     setErrors((prev) => ({ ...prev, collection: '' }));
                   }}
                 >
@@ -344,7 +593,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                 )}
               </div>
 
-              {/* Design Category Selection with Capacity Display */}
+              {/* Category Selection */}
               {selectedCollection && (
                 <div className="space-y-3">
                   <Label>Design Category *</Label>
@@ -353,28 +602,28 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                   </p>
                   
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {(Object.keys(CATEGORY_LABELS) as DesignCategory[]).map((category) => {
+                    {availableCategories.map((category) => {
                       const { used, limit, remaining } = getCategoryCapacity(category);
-                      const isAvailable = remaining > 0;
+                      const isAvailable = remaining > 0 || limit === 0;
                       const isSelected = selectedCategory === category;
                       const progressPercent = limit > 0 ? (used / limit) * 100 : 0;
                       
-                      // Skip categories with 0 limit
-                      if (limit === 0) return null;
+                      if (limit === 0 && category !== 'lehenga-set' && category !== 'saree-set') return null;
                       
                       return (
                         <button
                           key={category}
                           type="button"
-                          disabled={!isAvailable}
+                          disabled={!isAvailable && limit > 0}
                           onClick={() => {
                             setSelectedCategory(category);
+                            setSelectedTwoPieceType('');
                             setErrors((prev) => ({ ...prev, category: '' }));
                           }}
                           className={`relative p-3 border rounded-lg transition-all text-left ${
                             isSelected
                               ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                              : isAvailable
+                              : isAvailable || limit === 0
                                 ? 'border-border bg-card/50 hover:border-primary/50'
                                 : 'border-border bg-muted/30 opacity-60 cursor-not-allowed'
                           }`}
@@ -386,15 +635,17 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                             )}
                           </div>
                           
-                          <div className="space-y-1">
-                            <Progress value={progressPercent} className="h-1.5" />
-                            <div className="flex justify-between text-xs">
-                              <span className="text-muted-foreground">{used} / {limit}</span>
-                              <span className={remaining > 0 ? 'text-primary' : 'text-destructive'}>
-                                {remaining} left
-                              </span>
+                          {limit > 0 && (
+                            <div className="space-y-1">
+                              <Progress value={progressPercent} className="h-1.5" />
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">{used} / {limit}</span>
+                                <span className={remaining > 0 ? 'text-primary' : 'text-destructive'}>
+                                  {remaining} left
+                                </span>
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </button>
                       );
                     })}
@@ -409,208 +660,319 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                 </div>
               )}
 
-              <div className="space-y-2">
-                <Label>Silhouette * (Approved Only)</Label>
-                <p className="text-sm text-muted-foreground">
-                  Select from approved silhouettes with production-ready costing
-                </p>
-                {errors.silhouette && (
-                  <Alert variant="destructive" className="py-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="text-sm">{errors.silhouette}</AlertDescription>
-                  </Alert>
-                )}
-                {approvedSilhouettes.length === 0 ? (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      No approved silhouettes available. Please approve silhouettes in the Sampling module first.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {approvedSilhouettes.map((silhouette) => (
-                      <button
-                        key={silhouette.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSilhouette(silhouette.id);
-                          setErrors((prev) => ({ ...prev, silhouette: '' }));
-                        }}
-                        className={`relative p-4 border rounded-lg transition-all hover:border-primary ${
-                          selectedSilhouette === silhouette.id
-                            ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                            : 'border-border bg-card/50'
-                        }`}
-                      >
-                        <div className="aspect-square mb-3 flex items-center justify-center bg-background/50 rounded">
-                          {silhouette.technicalDrawing && (
-                            <img
-                              src={silhouette.technicalDrawing}
-                              alt={silhouette.name}
-                              className="w-full h-full object-contain p-2"
-                            />
-                          )}
-                        </div>
-                        <div className="text-center">
-                          <p className="text-xs font-mono text-muted-foreground mb-1">
-                            {silhouette.code}
-                          </p>
-                          <p className="text-sm font-medium text-foreground">
-                            {silhouette.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground capitalize mt-1">
-                            {silhouette.category}
-                          </p>
-                          {silhouette.fabricConsumption && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {silhouette.fabricConsumption}m fabric
-                            </p>
-                          )}
-                        </div>
-                        {selectedSilhouette === silhouette.id && (
-                          <div className="absolute top-2 right-2 w-5 h-5 bg-primary rounded-full flex items-center justify-center">
-                            <svg
-                              className="w-3 h-3 text-primary-foreground"
-                              fill="none"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Cost Display Panel */}
-                {selectedSilhouette && selectedSilhouetteData && (
-                  <div className="mt-4 p-4 border border-border rounded-lg bg-card/50 space-y-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Calculator className="h-4 w-4 text-primary" />
-                      <span className="font-medium text-sm">Cost Breakdown</span>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Fabric Consumption</p>
-                        <p className="font-medium">{selectedSilhouetteData.fabricConsumption || '–'} meters</p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Stitching Cost</p>
-                        <p className="font-medium flex items-center">
-                          <IndianRupee className="h-3 w-3" />
-                          {selectedSilhouetteData.stitchingCost?.toLocaleString() || '–'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {displayCost ? (
-                      <div className="pt-3 border-t border-border space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Fabric Cost</span>
-                          <span className="font-medium flex items-center">
-                            <IndianRupee className="h-3 w-3" />
-                            {displayCost.fabricCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-muted-foreground">Stitching Cost</span>
-                          <span className="font-medium flex items-center">
-                            <IndianRupee className="h-3 w-3" />
-                            {displayCost.stitchingCost.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center pt-2 border-t border-border">
-                          <span className="text-sm font-medium">Total Cost</span>
-                          <span className="font-bold flex items-center text-primary">
-                            <IndianRupee className="h-3.5 w-3.5" />
-                            {displayCost.totalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center bg-primary/10 p-2 rounded-md">
-                          <span className="text-sm font-medium">Predicted Selling Price (3.2x)</span>
-                          <span className="font-bold flex items-center text-primary">
-                            <IndianRupee className="h-3.5 w-3.5" />
-                            {displayCost.predictedSellingPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="pt-3 border-t border-border">
-                        <p className="text-xs text-muted-foreground italic">
-                          {selectedInductedFabric 
-                            ? "Cost data unavailable for this silhouette" 
-                            : "Select an inducted fabric below to see full cost calculation"}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="fabric">Base Fabric *</Label>
-                <Select
-                  value={selectedFabric}
-                  onValueChange={(value) => {
-                    setSelectedFabric(value);
-                    setErrors((prev) => ({ ...prev, fabric: '' }));
-                  }}
-                >
-                  <SelectTrigger id="fabric" className={errors.fabric ? 'border-destructive' : ''}>
-                    <SelectValue placeholder="Select base fabric" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {fabricLibrary.map((fabric) => (
-                      <SelectItem key={fabric.id} value={fabric.id}>
-                        {fabric.name} - {fabric.composition}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.fabric && (
-                  <p className="text-sm text-destructive flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    {errors.fabric}
-                  </p>
-                )}
-              </div>
-
-              {/* Inducted Fabric Selection (optional - for enhanced specs) */}
-              {inductedFabrics.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Link Inducted Fabric (Optional)</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Select an inducted fabric to include its color, print classification, and care specs in the techpack
-                  </p>
-                  <Select
-                    value={selectedInductedFabric?.id || ''}
-                    onValueChange={(value) => {
-                      const fabric = inductedFabrics.find(f => f.id === value);
-                      setSelectedInductedFabric(fabric || null);
-                    }}
+              {/* 2-Piece Type Selection */}
+              {selectedCategory === 'twoPiece' && available2PieceOptions.length > 1 && (
+                <div className="space-y-3">
+                  <Label>2-Piece Composition *</Label>
+                  <RadioGroup
+                    value={selectedTwoPieceType}
+                    onValueChange={(value) => setSelectedTwoPieceType(value as TwoPieceComposition)}
+                    className="grid grid-cols-2 gap-3"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select inducted fabric (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      {inductedFabrics.map((fabric) => (
-                        <SelectItem key={fabric.id} value={fabric.id}>
-                          {fabric.fabricName} - {fabric.componentType}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    {available2PieceOptions.map((option) => (
+                      <div
+                        key={option}
+                        className={`flex items-center space-x-2 p-3 border rounded-lg cursor-pointer ${
+                          selectedTwoPieceType === option ? 'border-primary bg-primary/5' : 'border-border'
+                        }`}
+                        onClick={() => setSelectedTwoPieceType(option)}
+                      >
+                        <RadioGroupItem value={option} id={option} />
+                        <Label htmlFor={option} className="cursor-pointer">
+                          {TWO_PIECE_LABELS[option]}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                  {errors.twoPieceType && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.twoPieceType}
+                    </p>
+                  )}
                 </div>
               )}
 
+              {/* Collection Fabrics Summary */}
+              {selectedCollection && collectionFabrics.length > 0 && (
+                <Card className="p-4 bg-card/50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Palette className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-sm">Inducted Fabrics for this Collection</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {collectionFabrics.map((fabric) => (
+                      <Badge key={fabric.id} variant="outline" className="text-xs">
+                        {fabric.fabricName} ({fabric.componentType})
+                      </Badge>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Step 2: Component Selection */}
+          {step === 2 && (
+            <div className="space-y-6">
+              {/* 1-Piece: Single component */}
+              {selectedCategory === 'onePiece' && (
+                <ComponentSelector
+                  componentType="shirt"
+                  label="Shirt / Kameez / Top"
+                  availableFabrics={fabricsByComponent.shirt.length > 0 ? fabricsByComponent.shirt : collectionFabrics}
+                  value={shirtConfig}
+                  onChange={setShirtConfig}
+                  error={errors.shirtSilhouette || errors.shirtFabric}
+                />
+              )}
+
+              {/* 2-Piece: Two components */}
+              {selectedCategory === 'twoPiece' && (
+                <div className="space-y-4">
+                  <ComponentSelector
+                    componentType="shirt"
+                    label="Shirt / Kameez"
+                    availableFabrics={fabricsByComponent.shirt.length > 0 ? fabricsByComponent.shirt : collectionFabrics}
+                    value={shirtConfig}
+                    onChange={setShirtConfig}
+                    error={errors.shirtSilhouette}
+                  />
+                  
+                  {selectedTwoPieceType === 'shirt-lowers' && (
+                    <ComponentSelector
+                      componentType="lowers"
+                      label="Lowers / Trousers / Shalwar"
+                      availableFabrics={fabricsByComponent.lowers.length > 0 ? fabricsByComponent.lowers : collectionFabrics}
+                      value={lowersConfig}
+                      onChange={setLowersConfig}
+                      error={errors.lowersSilhouette}
+                    />
+                  )}
+                  
+                  {selectedTwoPieceType === 'shirt-dupatta' && (
+                    <ComponentSelector
+                      componentType="dupatta"
+                      label="Dupatta"
+                      availableFabrics={fabricsByComponent.dupatta.length > 0 ? fabricsByComponent.dupatta : collectionFabrics}
+                      value={dupattaConfig}
+                      onChange={setDupattaConfig}
+                      error={errors.dupattaSilhouette}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* 3-Piece: Three components */}
+              {selectedCategory === 'threePiece' && (
+                <div className="space-y-4">
+                  <ComponentSelector
+                    componentType="shirt"
+                    label="Shirt / Kameez"
+                    availableFabrics={fabricsByComponent.shirt.length > 0 ? fabricsByComponent.shirt : collectionFabrics}
+                    value={shirtConfig}
+                    onChange={setShirtConfig}
+                    error={errors.shirtSilhouette}
+                  />
+                  <ComponentSelector
+                    componentType="lowers"
+                    label="Lowers / Trousers / Shalwar"
+                    availableFabrics={fabricsByComponent.lowers.length > 0 ? fabricsByComponent.lowers : collectionFabrics}
+                    value={lowersConfig}
+                    onChange={setLowersConfig}
+                    error={errors.lowersSilhouette}
+                  />
+                  <ComponentSelector
+                    componentType="dupatta"
+                    label="Dupatta"
+                    availableFabrics={fabricsByComponent.dupatta.length > 0 ? fabricsByComponent.dupatta : collectionFabrics}
+                    value={dupattaConfig}
+                    onChange={setDupattaConfig}
+                    error={errors.dupattaSilhouette}
+                  />
+                </div>
+              )}
+
+              {/* Standalone Dupattas */}
+              {selectedCategory === 'dupattas' && (
+                <ComponentSelector
+                  componentType="dupatta"
+                  label="Dupatta"
+                  availableFabrics={fabricsByComponent.dupatta.length > 0 ? fabricsByComponent.dupatta : collectionFabrics}
+                  value={dupattaConfig}
+                  onChange={setDupattaConfig}
+                />
+              )}
+
+              {/* Standalone Lowers */}
+              {selectedCategory === 'lowers' && (
+                <ComponentSelector
+                  componentType="lowers"
+                  label="Lowers / Trousers"
+                  availableFabrics={fabricsByComponent.lowers.length > 0 ? fabricsByComponent.lowers : collectionFabrics}
+                  value={lowersConfig}
+                  onChange={setLowersConfig}
+                />
+              )}
+
+              {/* Lehenga Set */}
+              {selectedCategory === 'lehenga-set' && (
+                <div className="space-y-4">
+                  <ComponentSelector
+                    componentType="lehenga"
+                    label="Lehenga"
+                    availableFabrics={fabricsByComponent.lehenga.length > 0 ? fabricsByComponent.lehenga : collectionFabrics}
+                    value={lehengaConfig}
+                    onChange={setLehengaConfig}
+                  />
+                  <ComponentSelector
+                    componentType="choli"
+                    label="Choli / Blouse"
+                    availableFabrics={fabricsByComponent.choli.length > 0 ? fabricsByComponent.choli : collectionFabrics}
+                    value={choliConfig}
+                    onChange={setCholiConfig}
+                  />
+                  <ComponentSelector
+                    componentType="dupatta"
+                    label="Dupatta"
+                    availableFabrics={fabricsByComponent.dupatta.length > 0 ? fabricsByComponent.dupatta : collectionFabrics}
+                    value={dupattaConfig}
+                    onChange={setDupattaConfig}
+                  />
+                </div>
+              )}
+
+              {/* Saree Set */}
+              {selectedCategory === 'saree-set' && (
+                <div className="space-y-4">
+                  <ComponentSelector
+                    componentType="saree"
+                    label="Saree"
+                    availableFabrics={fabricsByComponent.saree.length > 0 ? fabricsByComponent.saree : collectionFabrics}
+                    value={sareeConfig}
+                    onChange={setSareeConfig}
+                  />
+                  <ComponentSelector
+                    componentType="blouse"
+                    label="Blouse"
+                    availableFabrics={fabricsByComponent.blouse.length > 0 ? fabricsByComponent.blouse : collectionFabrics}
+                    value={blouseConfig}
+                    onChange={setBlouseConfig}
+                  />
+                </div>
+              )}
+
+              {/* Total Cost Summary */}
+              {totalCostCalculation && (
+                <Card className="p-4 bg-primary/5 border-primary/20">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Calculator className="h-4 w-4 text-primary" />
+                    <span className="font-medium">Total Design Cost</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Fabric Cost</p>
+                      <p className="font-medium flex items-center">
+                        <IndianRupee className="h-3 w-3" />
+                        {totalCostCalculation.fabricCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Stitching Cost</p>
+                      <p className="font-medium flex items-center">
+                        <IndianRupee className="h-3 w-3" />
+                        {totalCostCalculation.stitchingCost.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Cost</p>
+                      <p className="font-bold flex items-center text-primary">
+                        <IndianRupee className="h-3.5 w-3.5" />
+                        {totalCostCalculation.totalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Selling Price (3.2x)</p>
+                      <p className="font-bold flex items-center text-primary">
+                        <IndianRupee className="h-3.5 w-3.5" />
+                        {totalCostCalculation.predictedSellingPrice.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Step 3: Trims, Closures, Lining */}
+          {step === 3 && (
+            <div className="space-y-6">
+              {/* Shirt Trims & Closures */}
+              {(selectedCategory === 'onePiece' || selectedCategory === 'twoPiece' || selectedCategory === 'threePiece') && (
+                <Card className="p-4 space-y-4 bg-card/50">
+                  <h4 className="font-semibold text-foreground">Shirt / Kameez Details</h4>
+                  <TrimSelector
+                    value={shirtTrims}
+                    onChange={setShirtTrims}
+                    componentLabel="Shirt"
+                  />
+                  <Separator />
+                  <ClosureSelector
+                    value={shirtClosures}
+                    onChange={setShirtClosures}
+                    componentLabel="Shirt"
+                  />
+                </Card>
+              )}
+
+              {/* Lowers Trims */}
+              {((selectedCategory === 'twoPiece' && selectedTwoPieceType === 'shirt-lowers') || 
+                selectedCategory === 'threePiece' || 
+                selectedCategory === 'lowers') && (
+                <Card className="p-4 space-y-4 bg-card/50">
+                  <h4 className="font-semibold text-foreground">Lowers / Trousers Details</h4>
+                  <TrimSelector
+                    value={lowersTrims}
+                    onChange={setLowersTrims}
+                    componentLabel="Lowers"
+                  />
+                  <Separator />
+                  <ClosureSelector
+                    value={lowersClosures}
+                    onChange={setLowersClosures}
+                    componentLabel="Lowers"
+                  />
+                </Card>
+              )}
+
+              {/* Dupatta Trims */}
+              {((selectedCategory === 'twoPiece' && selectedTwoPieceType === 'shirt-dupatta') || 
+                selectedCategory === 'threePiece' || 
+                selectedCategory === 'dupattas' ||
+                selectedCategory === 'lehenga-set') && (
+                <Card className="p-4 space-y-4 bg-card/50">
+                  <h4 className="font-semibold text-foreground">Dupatta Details</h4>
+                  <TrimSelector
+                    value={dupattaTrims}
+                    onChange={setDupattaTrims}
+                    componentLabel="Dupatta"
+                  />
+                </Card>
+              )}
+
+              {/* Lining & Slip Configuration */}
+              {garmentExtras && (garmentExtras.hasLining || garmentExtras.hasSlip) && (
+                <LiningConfigurator
+                  liningConfig={liningConfig}
+                  onLiningChange={setLiningConfig}
+                  slipConfig={slipConfig}
+                  onSlipChange={setSlipConfig}
+                  availableFabrics={collectionFabrics}
+                  showSlip={garmentExtras.hasSlip}
+                />
+              )}
+
+              {/* Production Processes */}
               <div className="space-y-2">
                 <Label>Production Processes</Label>
                 <p className="text-sm text-muted-foreground mb-3">
@@ -631,25 +993,16 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     </Badge>
                   ))}
                 </div>
-                {selectedProcesses.length > 0 && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {selectedProcesses.length} process(es) selected
-                  </p>
-                )}
               </div>
-            </div>
-          )}
 
-          {/* Step 2: Specifying Changes and Customization */}
-          {step === 2 && (
-            <div className="space-y-6">
+              {/* Custom Modifications Toggle */}
               <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-card/50">
                 <div className="space-y-1">
                   <Label htmlFor="custom-toggle" className="text-base">
                     Custom Modifications
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Enable to specify custom changes to the silhouette
+                    Enable to specify custom neckline, sleeve, seam changes
                   </p>
                 </div>
                 <Switch
@@ -660,17 +1013,11 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
               </div>
 
               {isCustom && (
-                <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="neckline">Neckline *</Label>
-                    <Select
-                      value={selectedNeckline}
-                      onValueChange={(value) => {
-                        setSelectedNeckline(value);
-                        setErrors((prev) => ({ ...prev, neckline: '' }));
-                      }}
-                    >
-                      <SelectTrigger id="neckline" className={errors.neckline ? 'border-destructive' : ''}>
+                    <Label htmlFor="neckline">Neckline</Label>
+                    <Select value={selectedNeckline} onValueChange={setSelectedNeckline}>
+                      <SelectTrigger id="neckline">
                         <SelectValue placeholder="Select neckline" />
                       </SelectTrigger>
                       <SelectContent>
@@ -681,24 +1028,12 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                         ))}
                       </SelectContent>
                     </Select>
-                    {errors.neckline && (
-                      <p className="text-sm text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {errors.neckline}
-                      </p>
-                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="sleeve">Sleeve *</Label>
-                    <Select
-                      value={selectedSleeve}
-                      onValueChange={(value) => {
-                        setSelectedSleeve(value);
-                        setErrors((prev) => ({ ...prev, sleeve: '' }));
-                      }}
-                    >
-                      <SelectTrigger id="sleeve" className={errors.sleeve ? 'border-destructive' : ''}>
+                    <Label htmlFor="sleeve">Sleeve</Label>
+                    <Select value={selectedSleeve} onValueChange={setSelectedSleeve}>
+                      <SelectTrigger id="sleeve">
                         <SelectValue placeholder="Select sleeve" />
                       </SelectTrigger>
                       <SelectContent>
@@ -709,25 +1044,13 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                         ))}
                       </SelectContent>
                     </Select>
-                    {errors.sleeve && (
-                      <p className="text-sm text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {errors.sleeve}
-                      </p>
-                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="seam">Seam Finish Type *</Label>
-                    <Select
-                      value={selectedSeamFinish}
-                      onValueChange={(value) => {
-                        setSelectedSeamFinish(value);
-                        setErrors((prev) => ({ ...prev, seamFinish: '' }));
-                      }}
-                    >
-                      <SelectTrigger id="seam" className={errors.seamFinish ? 'border-destructive' : ''}>
-                        <SelectValue placeholder="Select seam finish" />
+                    <Label htmlFor="seam">Seam Finish</Label>
+                    <Select value={selectedSeamFinish} onValueChange={setSelectedSeamFinish}>
+                      <SelectTrigger id="seam">
+                        <SelectValue placeholder="Select finish" />
                       </SelectTrigger>
                       <SelectContent>
                         {seamFinishLibrary.map((seam) => (
@@ -737,28 +1060,14 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                         ))}
                       </SelectContent>
                     </Select>
-                    {errors.seamFinish && (
-                      <p className="text-sm text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {errors.seamFinish}
-                      </p>
-                    )}
                   </div>
-                </>
-              )}
-
-              {!isCustom && (
-                <div className="p-4 border border-border rounded-lg bg-card/50 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    Using standard silhouette specifications
-                  </p>
                 </div>
               )}
             </div>
           )}
 
-          {/* Step 3: Generating Demand and Techpack Submission */}
-          {step === 3 && (
+          {/* Step 4: Submission */}
+          {step === 4 && (
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label>Sample Type Demand *</Label>
@@ -807,38 +1116,44 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                 />
               </div>
 
-              <div className="space-y-4 p-4 border border-border rounded-lg bg-card/50">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-[hsl(var(--status-delayed))]" />
+              {/* Fast Track */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-card/50">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-5 w-5 text-amber-500" />
+                    <div className="space-y-1">
                       <Label htmlFor="fast-track" className="text-base">
                         Emergency Fast Track
                       </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Request priority processing for this design
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      Request director approval for expedited processing
-                    </p>
                   </div>
                   <Switch
                     id="fast-track"
                     checked={fastTrack}
-                    onCheckedChange={setFastTrack}
+                    onCheckedChange={(checked) => {
+                      setFastTrack(checked);
+                      if (!checked) setFastTrackReason('');
+                    }}
                   />
                 </div>
 
                 {fastTrack && (
-                  <div className="space-y-2 pt-2">
-                    <Label htmlFor="fast-track-reason">Fast Track Reason *</Label>
+                  <div className="space-y-2">
+                    <Label htmlFor="fast-track-reason" className="text-destructive">
+                      Fast Track Justification *
+                    </Label>
                     <Textarea
                       id="fast-track-reason"
-                      placeholder="Explain why this design needs fast track approval..."
+                      placeholder="Explain why this design needs fast track processing..."
                       value={fastTrackReason}
                       onChange={(e) => {
                         setFastTrackReason(e.target.value);
                         setErrors((prev) => ({ ...prev, fastTrackReason: '' }));
                       }}
-                      rows={3}
+                      rows={2}
                       className={errors.fastTrackReason ? 'border-destructive' : ''}
                     />
                     {errors.fastTrackReason && (
@@ -851,49 +1166,47 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                 )}
               </div>
 
-              <div className="space-y-4">
+              {/* Techpack Preview */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-lg">Techpack Preview</h4>
+                  <Label className="text-lg">Techpack Preview</Label>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={handleDownloadPdf}
-                    disabled={isGeneratingPdf || !selectedCollection || !selectedSilhouette || !selectedFabric}
+                    disabled={isGeneratingPdf}
                   >
                     <Download className="h-4 w-4 mr-2" />
                     {isGeneratingPdf ? 'Generating...' : 'Download PDF'}
                   </Button>
                 </div>
-
-                <div className="max-h-[500px] overflow-y-auto border border-border rounded-lg">
-                  <TechpackPreview
-                    ref={techpackRef}
-                    selectedCollection={selectedCollection}
-                    selectedSilhouette={selectedSilhouette}
-                    selectedFabric={selectedFabric}
-                    selectedProcesses={selectedProcesses}
-                    isCustom={isCustom}
-                    selectedNeckline={selectedNeckline}
-                    selectedSleeve={selectedSleeve}
-                    selectedSeamFinish={selectedSeamFinish}
-                    sampleType={sampleType}
-                    additionalNotes={additionalNotes}
-                    fastTrack={fastTrack}
-                    fastTrackReason={fastTrackReason}
-                    // Enhanced fabric specs from inducted fabric
-                    colorId={selectedInductedFabric?.colorId}
-                    printClassification={selectedInductedFabric?.printClassification}
-                    recommendedSPI={selectedInductedFabric?.technicalSpecs?.recommendedSPI}
-                    ironingInstructions={selectedInductedFabric?.technicalSpecs?.ironingInstructions}
-                    handlingNotes={selectedInductedFabric?.technicalSpecs?.handlingNotes}
-                  />
-                </div>
+                <TechpackPreview
+                  ref={techpackRef}
+                  selectedCollection={selectedCapsule?.collectionName || ''}
+                  selectedSilhouette={selectedSilhouetteForPreview?.id || ''}
+                  selectedFabric={primaryFabric?.fabricName || ''}
+                  selectedProcesses={selectedProcesses}
+                  isCustom={isCustom}
+                  selectedNeckline={selectedNeckline}
+                  selectedSleeve={selectedSleeve}
+                  selectedSeamFinish={selectedSeamFinish}
+                  sampleType={sampleType}
+                  additionalNotes={additionalNotes}
+                  fastTrack={fastTrack}
+                  fastTrackReason={fastTrackReason}
+                  colorId={primaryFabric?.colorId}
+                  printClassification={primaryFabric?.printClassification}
+                  recommendedSPI={primaryFabric?.technicalSpecs?.recommendedSPI}
+                  ironingInstructions={primaryFabric?.technicalSpecs?.ironingInstructions}
+                  handlingNotes={primaryFabric?.technicalSpecs?.handlingNotes}
+                />
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex justify-between pt-4 border-t border-border">
+        {/* Navigation */}
+        <div className="flex justify-between pt-6 border-t border-border">
           <Button
             variant="outline"
             onClick={handleBack}
@@ -903,14 +1216,14 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
             Back
           </Button>
 
-          {step < 3 ? (
+          {step < 4 ? (
             <Button onClick={handleNext}>
               Next
               <ChevronRight className="h-4 w-4 ml-2" />
             </Button>
           ) : (
-            <Button onClick={handleSubmit}>
-              Submit Techpack & Generate Demand
+            <Button onClick={handleSubmit} className="bg-primary">
+              Submit Design
             </Button>
           )}
         </div>
