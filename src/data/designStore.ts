@@ -5,6 +5,7 @@ export interface Design {
   collectionId: string;
   silhouetteId: string;
   fabricId: string;
+  inductedFabricId?: string; // Links to inducted fabric for enhanced specs
   category: 'onePiece' | 'twoPiece' | 'threePiece' | 'dupattas' | 'lowers';
   processes: string[];
   isCustom: boolean;

@@ -214,6 +214,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
       collectionId: selectedCollection,
       silhouetteId: selectedSilhouette,
       fabricId: selectedFabric,
+      inductedFabricId: selectedInductedFabric?.id,
       category: selectedCategory as DesignCategory,
       processes: selectedProcesses,
       isCustom,
