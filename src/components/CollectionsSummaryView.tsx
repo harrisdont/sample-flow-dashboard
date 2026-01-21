@@ -3,10 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Progress } from '@/components/ui/progress';
 import { useCapsuleStore, CapsuleCollection } from '@/data/capsuleCollectionData';
+import { useDesignStore } from '@/data/designStore';
 import { calculateBackwardsSchedule, Milestone } from '@/lib/schedulingEngine';
 import { format, differenceInDays } from 'date-fns';
-import { CheckCircle2, Clock, AlertTriangle, Layers, Calendar, Scissors, Package, Flag } from 'lucide-react';
+import { CheckCircle2, Clock, AlertTriangle, Layers, Calendar, Scissors, Package, Flag, Palette } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface KeyDeadlines {
@@ -16,8 +18,18 @@ interface KeyDeadlines {
   collectionReadyDate: Date;
 }
 
+interface DesignCounts {
+  onePiece: { submitted: number; planned: number };
+  twoPiece: { submitted: number; planned: number };
+  threePiece: { submitted: number; planned: number };
+  dupattas: { submitted: number; planned: number };
+  lowers: { submitted: number; planned: number };
+}
+
 interface CollectionWithStatus extends CapsuleCollection {
   totalDesigns: number;
+  submittedDesigns: number;
+  designCounts: DesignCounts;
   fabricStatus: 'not-started' | 'in-progress' | 'completed';
   samplingStatus: 'not-started' | 'in-progress' | 'completed';
   productionStatus: 'not-started' | 'in-progress' | 'completed';
@@ -121,6 +133,7 @@ const getTimelineBadge = (daysUntilInStore: number) => {
 
 export const CollectionsSummaryView = () => {
   const { capsules } = useCapsuleStore();
+  const { getDesignCountByCategory } = useDesignStore();
 
   const collectionsWithStatus = useMemo(() => {
     const today = new Date();
@@ -132,12 +145,28 @@ export const CollectionsSummaryView = () => {
           collection.selectedTechniques
         );
         
+        const categoryDesigns = collection.categoryDesigns || {
+          onePiece: 0, twoPiece: 0, threePiece: 0, dupattas: 0, lowers: 0
+        };
+        
         const totalDesigns = 
-          (collection.categoryDesigns?.onePiece || 0) +
-          (collection.categoryDesigns?.twoPiece || 0) +
-          (collection.categoryDesigns?.threePiece || 0) +
-          (collection.categoryDesigns?.dupattas || 0) +
-          (collection.categoryDesigns?.lowers || 0);
+          categoryDesigns.onePiece +
+          categoryDesigns.twoPiece +
+          categoryDesigns.threePiece +
+          categoryDesigns.dupattas +
+          categoryDesigns.lowers;
+
+        // Get submitted design counts from the design store
+        const submittedCounts = getDesignCountByCategory(collection.id);
+        const submittedDesigns = Object.values(submittedCounts).reduce((sum, count) => sum + count, 0);
+
+        const designCounts: DesignCounts = {
+          onePiece: { submitted: submittedCounts.onePiece || 0, planned: categoryDesigns.onePiece },
+          twoPiece: { submitted: submittedCounts.twoPiece || 0, planned: categoryDesigns.twoPiece },
+          threePiece: { submitted: submittedCounts.threePiece || 0, planned: categoryDesigns.threePiece },
+          dupattas: { submitted: submittedCounts.dupattas || 0, planned: categoryDesigns.dupattas },
+          lowers: { submitted: submittedCounts.lowers || 0, planned: categoryDesigns.lowers },
+        };
 
         const daysUntilInStore = differenceInDays(new Date(collection.targetInStoreDate), today);
 
@@ -177,6 +206,8 @@ export const CollectionsSummaryView = () => {
         return {
           ...collection,
           totalDesigns,
+          submittedDesigns,
+          designCounts,
           fabricStatus: getFabricStatus(),
           samplingStatus: getSamplingStatus(),
           productionStatus: getProductionStatus(),
@@ -186,7 +217,7 @@ export const CollectionsSummaryView = () => {
         };
       })
       .sort((a, b) => new Date(a.targetInStoreDate).getTime() - new Date(b.targetInStoreDate).getTime());
-  }, [capsules]);
+  }, [capsules, getDesignCountByCategory]);
 
   const summaryStats = useMemo(() => {
     const total = collectionsWithStatus.length;
@@ -194,8 +225,9 @@ export const CollectionsSummaryView = () => {
     const inProduction = collectionsWithStatus.filter(c => c.productionStatus === 'in-progress').length;
     const inSampling = collectionsWithStatus.filter(c => c.samplingStatus === 'in-progress').length;
     const totalDesigns = collectionsWithStatus.reduce((sum, c) => sum + c.totalDesigns, 0);
+    const submittedDesigns = collectionsWithStatus.reduce((sum, c) => sum + c.submittedDesigns, 0);
 
-    return { total, overdue, inProduction, inSampling, totalDesigns };
+    return { total, overdue, inProduction, inSampling, totalDesigns, submittedDesigns };
   }, [collectionsWithStatus]);
 
   if (collectionsWithStatus.length === 0) {
@@ -222,8 +254,15 @@ export const CollectionsSummaryView = () => {
             <div className="text-2xl font-bold">{summaryStats.total}</div>
           </Card>
           <Card className="p-4">
-            <div className="text-sm text-muted-foreground">Total Designs</div>
-            <div className="text-2xl font-bold text-primary">{summaryStats.totalDesigns}</div>
+            <div className="text-sm text-muted-foreground">Designs Submitted</div>
+            <div className="text-2xl font-bold text-primary">
+              {summaryStats.submittedDesigns}
+              <span className="text-sm font-normal text-muted-foreground ml-1">/ {summaryStats.totalDesigns}</span>
+            </div>
+            <Progress 
+              value={summaryStats.totalDesigns > 0 ? (summaryStats.submittedDesigns / summaryStats.totalDesigns) * 100 : 0} 
+              className="h-1.5 mt-2"
+            />
           </Card>
           <Card className="p-4">
             <div className="text-sm text-muted-foreground">In Sampling</div>
@@ -265,7 +304,12 @@ export const CollectionsSummaryView = () => {
                   <TableRow>
                     <TableHead>Line</TableHead>
                     <TableHead>Collection</TableHead>
-                    <TableHead className="text-center">Designs</TableHead>
+                    <TableHead className="text-center">
+                      <span className="flex items-center gap-1 justify-center">
+                        <Palette className="h-3.5 w-3.5" />
+                        Designs
+                      </span>
+                    </TableHead>
                     <TableHead className="text-center">
                       <span className="flex items-center gap-1 justify-center">
                         <Package className="h-3.5 w-3.5" />
@@ -331,7 +375,96 @@ export const CollectionsSummaryView = () => {
                         </Tooltip>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="secondary">{collection.totalDesigns}</Badge>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="cursor-help inline-flex flex-col items-center gap-1">
+                              <Badge 
+                                variant={collection.submittedDesigns === collection.totalDesigns ? "default" : "secondary"}
+                                className={cn(
+                                  collection.submittedDesigns === collection.totalDesigns && "bg-[hsl(var(--status-in-progress))]"
+                                )}
+                              >
+                                {collection.submittedDesigns} / {collection.totalDesigns}
+                              </Badge>
+                              <Progress 
+                                value={collection.totalDesigns > 0 ? (collection.submittedDesigns / collection.totalDesigns) * 100 : 0} 
+                                className="h-1 w-16"
+                              />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="right" className="p-3">
+                            <div className="space-y-2">
+                              <div className="font-semibold text-sm">Design Breakdown</div>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                                {collection.designCounts.onePiece.planned > 0 && (
+                                  <div className="flex justify-between gap-2">
+                                    <span>1-Piece:</span>
+                                    <span className={cn(
+                                      "font-medium",
+                                      collection.designCounts.onePiece.submitted === collection.designCounts.onePiece.planned 
+                                        ? "text-[hsl(var(--status-in-progress))]" 
+                                        : "text-muted-foreground"
+                                    )}>
+                                      {collection.designCounts.onePiece.submitted}/{collection.designCounts.onePiece.planned}
+                                    </span>
+                                  </div>
+                                )}
+                                {collection.designCounts.twoPiece.planned > 0 && (
+                                  <div className="flex justify-between gap-2">
+                                    <span>2-Piece:</span>
+                                    <span className={cn(
+                                      "font-medium",
+                                      collection.designCounts.twoPiece.submitted === collection.designCounts.twoPiece.planned 
+                                        ? "text-[hsl(var(--status-in-progress))]" 
+                                        : "text-muted-foreground"
+                                    )}>
+                                      {collection.designCounts.twoPiece.submitted}/{collection.designCounts.twoPiece.planned}
+                                    </span>
+                                  </div>
+                                )}
+                                {collection.designCounts.threePiece.planned > 0 && (
+                                  <div className="flex justify-between gap-2">
+                                    <span>3-Piece:</span>
+                                    <span className={cn(
+                                      "font-medium",
+                                      collection.designCounts.threePiece.submitted === collection.designCounts.threePiece.planned 
+                                        ? "text-[hsl(var(--status-in-progress))]" 
+                                        : "text-muted-foreground"
+                                    )}>
+                                      {collection.designCounts.threePiece.submitted}/{collection.designCounts.threePiece.planned}
+                                    </span>
+                                  </div>
+                                )}
+                                {collection.designCounts.dupattas.planned > 0 && (
+                                  <div className="flex justify-between gap-2">
+                                    <span>Dupattas:</span>
+                                    <span className={cn(
+                                      "font-medium",
+                                      collection.designCounts.dupattas.submitted === collection.designCounts.dupattas.planned 
+                                        ? "text-[hsl(var(--status-in-progress))]" 
+                                        : "text-muted-foreground"
+                                    )}>
+                                      {collection.designCounts.dupattas.submitted}/{collection.designCounts.dupattas.planned}
+                                    </span>
+                                  </div>
+                                )}
+                                {collection.designCounts.lowers.planned > 0 && (
+                                  <div className="flex justify-between gap-2">
+                                    <span>Lowers:</span>
+                                    <span className={cn(
+                                      "font-medium",
+                                      collection.designCounts.lowers.submitted === collection.designCounts.lowers.planned 
+                                        ? "text-[hsl(var(--status-in-progress))]" 
+                                        : "text-muted-foreground"
+                                    )}>
+                                      {collection.designCounts.lowers.submitted}/{collection.designCounts.lowers.planned}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex justify-center">
