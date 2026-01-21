@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { CalendarIcon, Upload } from 'lucide-react';
+import { CalendarIcon, Upload, FileText } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { 
@@ -200,11 +201,25 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
       return;
     }
     
+    // Build partial technical specs from care & handling fields
+    const partialSpecs = {
+      recommendedSPI: recommendedSPI ? parseInt(recommendedSPI) : undefined,
+      ironingInstructions: ironingInstructions || undefined,
+      handlingNotes: handlingNotes || undefined,
+    };
+    
     if (isEditing) {
       // Build print classification if all fields are filled
       const printClassification: PrintClassification | undefined = 
         (baseTreatmentType === 'printing' && printCategory && printColorScheme && printScale)
           ? { category: printCategory as PrintCategory, colorScheme: printColorScheme as PrintColorScheme, scale: printScale as PrintScale }
+          : undefined;
+      
+      // Merge partial specs with existing technicalSpecs
+      const mergedSpecs = fabric?.technicalSpecs 
+        ? { ...fabric.technicalSpecs, ...partialSpecs }
+        : (partialSpecs.recommendedSPI || partialSpecs.ironingInstructions || partialSpecs.handlingNotes)
+          ? partialSpecs as any
           : undefined;
       
       updateFabricEntry(fabric!.id, {
@@ -219,6 +234,7 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
         fabricDeadline,
         colorId: selectedColorId,
         printClassification,
+        technicalSpecs: mergedSpecs,
       });
       toast.success('Fabric updated successfully!');
     } else {
@@ -235,6 +251,11 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
         (baseTreatmentType === 'printing' && printCategory && printColorScheme && printScale)
           ? { category: printCategory as PrintCategory, colorScheme: printColorScheme as PrintColorScheme, scale: printScale as PrintScale }
           : undefined;
+      
+      // Only include technicalSpecs if any care/handling field is filled
+      const initialSpecs = (partialSpecs.recommendedSPI || partialSpecs.ironingInstructions || partialSpecs.handlingNotes)
+        ? partialSpecs as any
+        : undefined;
       
       addFabricEntry({
         collectionId: collection.id,
@@ -258,6 +279,7 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
         surfaceTreatments,
         surfaceTreatmentComplete: surfaceTreatments.length === 0,
         fabricDeadline,
+        technicalSpecs: initialSpecs,
       });
       toast.success('Fabric added successfully!');
     }
@@ -628,6 +650,59 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
               ))}
             </div>
           </div>
+        </>
+      )}
+      
+      {/* Care & Handling Specifications - Always visible (not during induction) */}
+      {!isReadyForInduction && (
+        <>
+          <Separator />
+          <Card className="border-border">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                Care & Handling Specifications
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">Optional - can be filled progressively</p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="recommendedSPI">Recommended SPI (Stitches Per Inch)</Label>
+                  <Input
+                    id="recommendedSPI"
+                    type="number"
+                    placeholder="e.g., 12"
+                    value={recommendedSPI}
+                    onChange={(e) => setRecommendedSPI(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ironingInstructions">Ironing Instructions</Label>
+                  <Select value={ironingInstructions} onValueChange={(v) => setIroningInstructions(v as IroningInstruction)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select ironing instructions" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(IRONING_INSTRUCTION_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <Label htmlFor="handlingNotes">Handling Notes</Label>
+                  <Textarea
+                    id="handlingNotes"
+                    placeholder="Special handling instructions for this fabric..."
+                    value={handlingNotes}
+                    onChange={(e) => setHandlingNotes(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
       
