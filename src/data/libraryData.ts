@@ -74,3 +74,30 @@ export const fabricLibrary: FabricItem[] = [
   { id: '4', name: 'Silk Organza', composition: '100% Silk' },
   { id: '5', name: 'Linen Blend', composition: '55% Linen, 45% Cotton' },
 ];
+
+// Base fabric library for fabric induction
+export interface BaseFabricItem {
+  id: string;
+  name: string;
+  defaultComposition: string;
+  type: 'jacquard' | 'dobby' | 'yarn-dyed' | 'greige' | 'solid-dyed' | 'other';
+}
+
+export const baseFabricLibrary: BaseFabricItem[] = [
+  { id: 'lawn', name: 'Cotton Lawn', defaultComposition: '100% Cotton', type: 'greige' },
+  { id: 'cambric', name: 'Cambric', defaultComposition: '100% Cotton', type: 'greige' },
+  { id: 'voile', name: 'Cotton Voile', defaultComposition: '100% Cotton', type: 'greige' },
+  { id: 'slub-lawn', name: 'Slub Lawn', defaultComposition: '100% Cotton', type: 'greige' },
+  { id: 'jacquard-lawn', name: 'Jacquard Lawn', defaultComposition: '100% Cotton', type: 'jacquard' },
+  { id: 'jacquard-cambric', name: 'Jacquard Cambric', defaultComposition: '100% Cotton', type: 'jacquard' },
+  { id: 'dobby-cotton', name: 'Dobby Cotton', defaultComposition: '100% Cotton', type: 'dobby' },
+  { id: 'yarn-dyed-chambray', name: 'Yarn Dyed Chambray', defaultComposition: '100% Cotton', type: 'yarn-dyed' },
+  { id: 'yarn-dyed-check', name: 'Yarn Dyed Check', defaultComposition: '100% Cotton', type: 'yarn-dyed' },
+  { id: 'silk-organza', name: 'Silk Organza', defaultComposition: '100% Silk', type: 'greige' },
+  { id: 'chiffon', name: 'Chiffon', defaultComposition: '100% Polyester', type: 'greige' },
+  { id: 'georgette', name: 'Georgette', defaultComposition: '100% Polyester', type: 'greige' },
+  { id: 'net', name: 'Net Fabric', defaultComposition: '100% Nylon', type: 'greige' },
+  { id: 'velvet', name: 'Velvet', defaultComposition: '100% Polyester', type: 'solid-dyed' },
+  { id: 'linen', name: 'Pure Linen', defaultComposition: '100% Linen', type: 'greige' },
+  { id: 'linen-blend', name: 'Linen Blend', defaultComposition: '55% Linen, 45% Cotton', type: 'greige' },
+];
