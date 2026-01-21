@@ -24,7 +24,7 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { TechpackPreview } from '@/components/TechpackPreview';
 import { useCapsuleStore, CategoryDesigns, TwoPieceComposition } from '@/data/capsuleCollectionData';
-import { useDesignStore, Design, ComponentSpec } from '@/data/designStore';
+import { useDesignStore, Design, ComponentSpec, TechpackAnnotations } from '@/data/designStore';
 import { useFabricStore, FabricEntry, ComponentType as FabricComponentType } from '@/data/fabricStore';
 import { useSilhouetteStore } from '@/data/silhouetteStore';
 import { TrimApplication } from '@/data/trimsStore';
@@ -132,6 +132,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [fabricAssignments, setFabricAssignments] = useState<FabricAssignment[]>([]);
+  const [canvasAnnotationDataUrl, setCanvasAnnotationDataUrl] = useState<string | null>(null);
   const techpackRef = useRef<HTMLDivElement>(null);
 
   // Get selected capsule and its composition settings
@@ -458,6 +459,19 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
     }
 
     const designId = `design-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Build techpack annotations if canvas has been modified
+    const techpackAnnotations: TechpackAnnotations | undefined = canvasAnnotationDataUrl ? {
+      dataUrl: canvasAnnotationDataUrl,
+      fabricLegend: fabricAssignments.map(a => ({
+        number: a.fabricNumber,
+        fabricName: a.fabricName,
+        color: a.color,
+        componentType: a.componentType,
+      })),
+      createdAt: new Date(),
+    } : undefined;
+    
     const newDesign: Design = {
       id: designId,
       collectionId: selectedCollection,
@@ -466,6 +480,8 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
       inductedFabricId: shirtConfig.inductedFabricId,
       category: selectedCategory as DesignCategory,
       components,
+      fabricAssignments: fabricAssignments.length > 0 ? fabricAssignments : undefined,
+      techpackAnnotations,
       trims: shirtTrims,
       closures: shirtClosures,
       liningConfig: liningConfig.enabled ? liningConfig : undefined,
@@ -525,6 +541,8 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
     setFastTrackReason('');
     setSelectedProcesses([]);
     setErrors({});
+    setFabricAssignments([]);
+    setCanvasAnnotationDataUrl(null);
   };
 
   // For TechpackPreview compatibility
@@ -1332,7 +1350,14 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                     width={550}
                     height={450}
                     fabricNumbers={fabricNumbersForCanvas.length > 0 ? fabricNumbersForCanvas : FABRIC_COLORS.slice(0, 5).map(c => ({ number: c.number, color: c.color }))}
+                    onAnnotationsChange={setCanvasAnnotationDataUrl}
                   />
+                  {canvasAnnotationDataUrl && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-green-500" />
+                      Annotations will be saved with this design
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1369,6 +1394,13 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                   recommendedSPI={primaryFabric?.technicalSpecs?.recommendedSPI}
                   ironingInstructions={primaryFabric?.technicalSpecs?.ironingInstructions}
                   handlingNotes={primaryFabric?.technicalSpecs?.handlingNotes}
+                  annotatedDrawingUrl={canvasAnnotationDataUrl || undefined}
+                  fabricLegend={fabricAssignments.map(a => ({
+                    number: a.fabricNumber,
+                    fabricName: a.fabricName,
+                    color: a.color,
+                    componentType: a.componentType,
+                  }))}
                 />
               </div>
             </div>

@@ -25,6 +25,17 @@ export interface FabricAssignment {
   sections?: string[];
 }
 
+export interface TechpackAnnotations {
+  dataUrl: string;  // Base64 PNG of the annotated canvas
+  fabricLegend?: {
+    number: number;
+    fabricName: string;
+    color: string;
+    componentType: string;
+  }[];
+  createdAt: Date;
+}
+
 export interface Design {
   id: string;
   collectionId: string;
@@ -48,6 +59,9 @@ export interface Design {
   
   // Fabric assignments for color/print blocking
   fabricAssignments?: FabricAssignment[];
+  
+  // Techpack canvas annotations
+  techpackAnnotations?: TechpackAnnotations;
   
   // Trims & closures (for single-piece or overall)
   trims?: TrimApplication[];
