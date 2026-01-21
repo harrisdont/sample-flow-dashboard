@@ -9,6 +9,15 @@ import {
   seamFinishLibrary,
   fabricLibrary,
 } from '@/data/libraryData';
+import { useColorPaletteStore } from '@/data/colorPaletteStore';
+import {
+  PRINT_CATEGORY_LABELS,
+  PRINT_COLOR_SCHEME_LABELS,
+  PRINT_SCALE_LABELS,
+  IRONING_INSTRUCTION_LABELS,
+  PrintClassification,
+  IroningInstruction,
+} from '@/data/fabricStore';
 
 interface TechpackPreviewProps {
   selectedCollection: string;
@@ -23,6 +32,12 @@ interface TechpackPreviewProps {
   additionalNotes: string;
   fastTrack: boolean;
   fastTrackReason: string;
+  // New enhanced fabric specs
+  colorId?: string;
+  printClassification?: PrintClassification;
+  recommendedSPI?: number;
+  ironingInstructions?: IroningInstruction;
+  handlingNotes?: string;
 }
 
 export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
@@ -40,14 +55,23 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
       additionalNotes,
       fastTrack,
       fastTrackReason,
+      colorId,
+      printClassification,
+      recommendedSPI,
+      ironingInstructions,
+      handlingNotes,
     },
     ref
   ) => {
     const silhouetteData = silhouetteLibrary.find((s) => s.id === selectedSilhouette);
     const fabricData = fabricLibrary.find((f) => f.id === selectedFabric);
     const necklineData = necklineLibrary.find((n) => n.id === selectedNeckline);
-    const sleeveData = sleeveLibrary.find((s) => s.id === selectedSleeve);
+    const sleeveData = sleeveLibrary.find((s) => s.id === selectedSeamFinish);
     const seamFinishData = seamFinishLibrary.find((s) => s.id === selectedSeamFinish);
+    
+    // Get color from palette
+    const { getColorById } = useColorPaletteStore();
+    const selectedColor = colorId ? getColorById(colorId) : undefined;
 
     return (
       <Card ref={ref} className="p-6 bg-card border-border">
@@ -154,6 +178,45 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
                 <span className="text-muted-foreground">Composition:</span>
                 <p className="font-medium text-foreground">{fabricData?.composition}</p>
               </div>
+              
+              {/* Color Details */}
+              {selectedColor && (
+                <div>
+                  <span className="text-muted-foreground">Color:</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div 
+                      className="w-6 h-6 rounded border border-border"
+                      style={{ backgroundColor: selectedColor.hexCode }}
+                    />
+                    <span className="font-medium text-foreground">{selectedColor.name}</span>
+                    <span className="text-xs text-muted-foreground">({selectedColor.hexCode})</span>
+                    {selectedColor.pantoneCode && (
+                      <Badge variant="outline" className="text-xs">
+                        {selectedColor.pantoneCode}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Print Classification */}
+              {printClassification && (
+                <div>
+                  <span className="text-muted-foreground">Print Classification:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    <Badge variant="secondary" className="text-xs">
+                      {PRINT_CATEGORY_LABELS[printClassification.category]}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {PRINT_COLOR_SCHEME_LABELS[printClassification.colorScheme]}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs">
+                      {PRINT_SCALE_LABELS[printClassification.scale]}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+              
               {selectedProcesses.length > 0 && (
                 <div>
                   <span className="text-muted-foreground">Production Processes:</span>
@@ -172,6 +235,40 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
               )}
             </div>
           </div>
+          
+          {/* Care & Handling Specifications */}
+          {(recommendedSPI || ironingInstructions || handlingNotes) && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-foreground">Care & Handling</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  {recommendedSPI && (
+                    <div>
+                      <span className="text-muted-foreground">Recommended SPI:</span>
+                      <p className="font-medium text-foreground">{recommendedSPI} stitches/inch</p>
+                    </div>
+                  )}
+                  {ironingInstructions && (
+                    <div>
+                      <span className="text-muted-foreground">Ironing:</span>
+                      <p className="font-medium text-foreground">
+                        {IRONING_INSTRUCTION_LABELS[ironingInstructions]}
+                      </p>
+                    </div>
+                  )}
+                  {handlingNotes && (
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">Handling Notes:</span>
+                      <div className="mt-1 bg-background/50 p-2 rounded border border-border">
+                        <p className="text-foreground whitespace-pre-wrap">{handlingNotes}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Custom Modifications */}
           {isCustom && (
