@@ -86,13 +86,24 @@ export const FabricInductionForm = ({ fabric, onClose }: FabricInductionFormProp
   const [stitchingSpecs, setStitchingSpecs] = useState(fabric?.technicalSpecs?.stitchingSpecs || '');
   const [careInstructions, setCareInstructions] = useState(fabric?.technicalSpecs?.careInstructions || '');
   
+  // Product line colors mapping
+  const lineColors: Record<string, string> = {
+    'woman': 'bg-pink-500',
+    'classic': 'bg-orange-500',
+    'cottage': 'bg-yellow-500',
+    'formals': 'bg-purple-500',
+    'ming': 'bg-green-500',
+    'basic': 'bg-sky-500',
+    'semi-bridals': 'bg-rose-500',
+  };
+  
   // Get collection options from capsule store
   const collectionOptions = Object.values(capsules).flat().map((c) => ({
     id: c.id,
     name: c.collectionName,
     lineId: c.lineId,
     lineName: c.lineName,
-    lineColor: c.lineColor,
+    lineColor: lineColors[c.lineId] || 'bg-gray-500',
   }));
   
   const selectedCollectionData = collectionOptions.find((c) => c.id === selectedCollection);
