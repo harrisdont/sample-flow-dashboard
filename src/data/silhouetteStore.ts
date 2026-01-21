@@ -79,6 +79,7 @@ interface SilhouetteStore {
     fabricConsumption: number;
     stitchingCost: number;
     linkedFabricId?: string;
+    technicalDrawing?: string;
   }) => void;
   rejectSilhouette: (id: string, reason: string) => void;
   
@@ -292,6 +293,7 @@ export const useSilhouetteStore = create<SilhouetteStore>((set, get) => ({
           fabricConsumption: data.fabricConsumption,
           stitchingCost: data.stitchingCost,
           linkedFabricId: data.linkedFabricId,
+          technicalDrawing: data.technicalDrawing,
           approvedAt: now,
           updatedAt: now,
         },
