@@ -8,10 +8,12 @@ import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Settings2, ChevronDown, ChevronUp, Calendar, Layers } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, Settings2, ChevronDown, ChevronUp, Calendar, Layers, ClipboardList } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CapsuleCollectionPlanForm from '@/components/CapsuleCollectionPlanForm';
 import MasterCalendar from '@/components/MasterCalendar';
+import CollectionsSummaryView from '@/components/CollectionsSummaryView';
 import { cn } from '@/lib/utils';
 import { LINE_COLLECTION_CAPACITY } from '@/data/capsuleCollectionData';
 interface ProductLine {
@@ -321,6 +323,25 @@ const SeasonalCollectionPlanning = () => {
             Manage and track designs across all product lines
           </p>
         </div>
+
+        {/* Main Tabs */}
+        <Tabs defaultValue="planning" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="planning" className="gap-2">
+              <Settings2 className="h-4 w-4" />
+              Planning
+            </TabsTrigger>
+            <TabsTrigger value="summary" className="gap-2">
+              <ClipboardList className="h-4 w-4" />
+              Collections Summary
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="summary">
+            <CollectionsSummaryView />
+          </TabsContent>
+
+          <TabsContent value="planning">
 
         {/* Main Category Plan Control Panel */}
         <Card className="mb-8">
@@ -862,6 +883,8 @@ const SeasonalCollectionPlanning = () => {
             )}
           </SheetContent>
         </Sheet>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
