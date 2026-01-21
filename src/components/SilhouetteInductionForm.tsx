@@ -73,13 +73,15 @@ const STEP_CONFIG: Record<Step, { title: string; description: string }> = {
   },
 };
 
-// Sketch Uploader Component
+// Image Uploader Component (reusable for sketch and technical drawing)
 interface SketchUploaderProps {
   value: string;
   onChange: (value: string) => void;
+  label?: string;
+  compact?: boolean;
 }
 
-const SketchUploader = ({ value, onChange }: SketchUploaderProps) => {
+const SketchUploader = ({ value, onChange, label = 'sketch image', compact = false }: SketchUploaderProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [urlMode, setUrlMode] = useState(false);
@@ -232,7 +234,7 @@ const SketchUploader = ({ value, onChange }: SketchUploaderProps) => {
           </div>
           <div>
             <p className="font-medium text-sm">
-              Drop sketch image here or click to browse
+              Drop {label} here or click to browse
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Supports JPG, PNG, WebP (max 10MB)
@@ -289,7 +291,7 @@ export const SilhouetteInductionForm = ({
   const [fabricConsumption, setFabricConsumption] = useState('');
   const [stitchingCost, setStitchingCost] = useState('');
   const [linkedFabricId, setLinkedFabricId] = useState('');
-
+  const [technicalDrawing, setTechnicalDrawing] = useState('');
   // Determine current step based on status
   const currentStep: Step = useMemo(() => {
     if (!silhouette) return 'submit';
@@ -336,6 +338,7 @@ export const SilhouetteInductionForm = ({
       setFabricConsumption(silhouette.fabricConsumption?.toString() || '');
       setStitchingCost(silhouette.stitchingCost?.toString() || '');
       setLinkedFabricId(silhouette.linkedFabricId || '');
+      setTechnicalDrawing(silhouette.technicalDrawing || '');
       setRejectionReason(silhouette.rejectedReason || '');
     } else {
       resetForm();
@@ -355,6 +358,7 @@ export const SilhouetteInductionForm = ({
     setFabricConsumption('');
     setStitchingCost('');
     setLinkedFabricId('');
+    setTechnicalDrawing('');
   };
 
   const generateCode = () => {
@@ -430,6 +434,7 @@ export const SilhouetteInductionForm = ({
       fabricConsumption: parseFloat(fabricConsumption),
       stitchingCost: parseFloat(stitchingCost),
       linkedFabricId: linkedFabricId || undefined,
+      technicalDrawing: technicalDrawing || undefined,
     });
     
     toast.success('Silhouette approved and inducted');
@@ -712,6 +717,24 @@ export const SilhouetteInductionForm = ({
                 disabled={isViewOnly}
               />
             </div>
+
+            {/* Technical Drawing Upload */}
+            {!isViewOnly && (
+              <div className="space-y-2">
+                <Label>
+                  <ImageIcon className="inline h-4 w-4 mr-1" />
+                  Technical Drawing (Optional)
+                </Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Upload the finalized technical drawing for this silhouette
+                </p>
+                <SketchUploader
+                  value={technicalDrawing}
+                  onChange={setTechnicalDrawing}
+                  label="technical drawing"
+                />
+              </div>
+            )}
 
             {/* Grading Sizes */}
             <div className="space-y-2">
