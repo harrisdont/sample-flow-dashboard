@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Filter, Search, ChevronDown, ChevronRight, Layers, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { Plus, Filter, Search, ChevronDown, ChevronRight, Layers, CheckCircle2, Clock, AlertTriangle, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useFabricStore, FABRIC_STATUS_CONFIG, COMPONENT_TYPE_LABELS, FABRIC_TYPE_LABELS, FabricStatus, FabricEntry } from '@/data/fabricStore';
 import { FabricInductionForm } from '@/components/FabricInductionForm';
 import { FabricStatusBoard } from '@/components/FabricStatusBoard';
+import { AccessoriesManager } from '@/components/AccessoriesManager';
 import { MainNav } from '@/components/MainNav';
 import { differenceInDays } from 'date-fns';
 
@@ -196,6 +197,10 @@ const FabricInduction = () => {
             <TabsList>
               <TabsTrigger value="collections">By Collection</TabsTrigger>
               <TabsTrigger value="status-board">Status Board</TabsTrigger>
+              <TabsTrigger value="accessories" className="gap-2">
+                <Package className="h-4 w-4" />
+                Accessories
+              </TabsTrigger>
             </TabsList>
             
             <div className="flex items-center gap-3">
@@ -420,6 +425,10 @@ const FabricInduction = () => {
                 return matchesSearch && matchesLine;
               })}
             />
+          </TabsContent>
+          
+          <TabsContent value="accessories">
+            <AccessoriesManager />
           </TabsContent>
         </Tabs>
         </div>
