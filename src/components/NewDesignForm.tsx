@@ -33,6 +33,7 @@ import { ComponentSelector, ComponentConfig, ComponentType } from '@/components/
 import { TrimSelector } from '@/components/design/TrimSelector';
 import { ClosureSelector } from '@/components/design/ClosureSelector';
 import { LiningConfigurator, LiningConfig, SlipConfig } from '@/components/design/LiningConfigurator';
+import { TechpackCanvas } from '@/components/design/TechpackCanvas';
 import {
   silhouetteLibrary,
   necklineLibrary,
@@ -40,7 +41,7 @@ import {
   seamFinishLibrary,
 } from '@/data/libraryData';
 import { toast } from 'sonner';
-import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle, CheckCircle2, IndianRupee, Calculator, Palette } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle, CheckCircle2, IndianRupee, Calculator, Palette, PenTool } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -1165,6 +1166,31 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                   </div>
                 )}
               </div>
+
+              {/* Techpack Annotation Canvas */}
+              {primarySilhouette?.technicalDrawing && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <PenTool className="h-4 w-4 text-primary" />
+                    <Label className="text-lg">Annotate Technical Drawing</Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Use the canvas below to mark fabric placements, add notes, or make modifications to the technical drawing.
+                  </p>
+                  <TechpackCanvas
+                    imageUrl={primarySilhouette.technicalDrawing}
+                    width={550}
+                    height={450}
+                    fabricNumbers={[
+                      { number: 1, color: '#3b82f6' },
+                      { number: 2, color: '#22c55e' },
+                      { number: 3, color: '#f97316' },
+                      { number: 4, color: '#a855f7' },
+                      { number: 5, color: '#ef4444' },
+                    ]}
+                  />
+                </div>
+              )}
 
               {/* Techpack Preview */}
               <div className="space-y-3">
