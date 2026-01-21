@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,10 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
 import { TechpackPreview } from '@/components/TechpackPreview';
-import { useCapsuleStore } from '@/data/capsuleCollectionData';
+import { useCapsuleStore, CategoryDesigns } from '@/data/capsuleCollectionData';
+import { useDesignStore, Design } from '@/data/designStore';
 import {
   silhouetteLibrary,
   necklineLibrary,
@@ -29,9 +31,19 @@ import {
   fabricLibrary,
 } from '@/data/libraryData';
 import { toast } from 'sonner';
-import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle, CheckCircle2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+
+type DesignCategory = 'onePiece' | 'twoPiece' | 'threePiece' | 'dupattas' | 'lowers';
+
+const CATEGORY_LABELS: Record<DesignCategory, string> = {
+  onePiece: '1-Piece',
+  twoPiece: '2-Piece',
+  threePiece: '3-Piece',
+  dupattas: 'Dupattas',
+  lowers: 'Lowers',
+};
 
 interface NewDesignFormProps {
   open: boolean;
@@ -43,8 +55,11 @@ type Step = 1 | 2 | 3;
 export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const capsules = useCapsuleStore((state) => state.capsules);
   const capsuleList = Object.values(capsules);
+  const { addDesign, getDesignCountByCategory } = useDesignStore();
+  
   const [step, setStep] = useState<Step>(1);
   const [selectedCollection, setSelectedCollection] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<DesignCategory | ''>('');
   const [selectedSilhouette, setSelectedSilhouette] = useState('');
   const [selectedFabric, setSelectedFabric] = useState('');
   const [isCustom, setIsCustom] = useState(false);
@@ -59,6 +74,31 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const techpackRef = useRef<HTMLDivElement>(null);
+
+  // Get current collection's category limits and usage
+  const selectedCapsule = capsules[selectedCollection];
+  const currentDesignCounts = useMemo(() => {
+    if (!selectedCollection) return null;
+    return getDesignCountByCategory(selectedCollection);
+  }, [selectedCollection, getDesignCountByCategory]);
+
+  const categoryLimits = selectedCapsule?.categoryDesigns;
+
+  // Calculate remaining capacity for each category
+  const getCategoryCapacity = (category: DesignCategory): { used: number; limit: number; remaining: number } => {
+    if (!categoryLimits || !currentDesignCounts) {
+      return { used: 0, limit: 0, remaining: 0 };
+    }
+    const limit = categoryLimits[category] || 0;
+    const used = currentDesignCounts[category] || 0;
+    return { used, limit, remaining: Math.max(0, limit - used) };
+  };
+
+  // Check if a category has available capacity
+  const isCategoryAvailable = (category: DesignCategory): boolean => {
+    const { remaining } = getCategoryCapacity(category);
+    return remaining > 0;
+  };
 
   const availableProcesses = [
     { id: 'multihead', label: 'Multihead' },
@@ -82,6 +122,10 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
 
     if (currentStep === 1) {
       if (!selectedCollection) newErrors.collection = 'Collection is required';
+      if (!selectedCategory) newErrors.category = 'Design category is required';
+      if (selectedCategory && !isCategoryAvailable(selectedCategory)) {
+        newErrors.category = `${CATEGORY_LABELS[selectedCategory]} category has reached its limit`;
+      }
       if (!selectedSilhouette) newErrors.silhouette = 'Silhouette is required';
       if (!selectedFabric) newErrors.fabric = 'Base fabric is required';
     }
@@ -153,13 +197,42 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
       toast.error('Please complete all required fields');
       return;
     }
+
+    // Create and store the design
+    const designId = `design-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newDesign: Design = {
+      id: designId,
+      collectionId: selectedCollection,
+      silhouetteId: selectedSilhouette,
+      fabricId: selectedFabric,
+      category: selectedCategory as DesignCategory,
+      processes: selectedProcesses,
+      isCustom,
+      neckline: isCustom ? selectedNeckline : undefined,
+      sleeve: isCustom ? selectedSleeve : undefined,
+      seamFinish: isCustom ? selectedSeamFinish : undefined,
+      sampleType,
+      fastTrack,
+      fastTrackReason: fastTrack ? fastTrackReason : undefined,
+      additionalNotes: additionalNotes || undefined,
+      createdAt: new Date(),
+      status: 'pending',
+    };
+
+    addDesign(newDesign);
+
+    const capsule = capsules[selectedCollection];
+    const categoryLabel = CATEGORY_LABELS[selectedCategory as DesignCategory];
+    
     toast.success('Design Submitted Successfully', {
-      description: 'Sample demand generated and approval process initiated',
+      description: `${categoryLabel} design added to ${capsule?.collectionName}`,
     });
+    
     onOpenChange(false);
     // Reset form
     setStep(1);
     setSelectedCollection('');
+    setSelectedCategory('');
     setSelectedSilhouette('');
     setSelectedFabric('');
     setIsCustom(false);
@@ -225,6 +298,71 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                   </p>
                 )}
               </div>
+
+              {/* Design Category Selection with Capacity Display */}
+              {selectedCollection && (
+                <div className="space-y-3">
+                  <Label>Design Category *</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Select the category for this design. Available slots are based on collection plan.
+                  </p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {(Object.keys(CATEGORY_LABELS) as DesignCategory[]).map((category) => {
+                      const { used, limit, remaining } = getCategoryCapacity(category);
+                      const isAvailable = remaining > 0;
+                      const isSelected = selectedCategory === category;
+                      const progressPercent = limit > 0 ? (used / limit) * 100 : 0;
+                      
+                      // Skip categories with 0 limit
+                      if (limit === 0) return null;
+                      
+                      return (
+                        <button
+                          key={category}
+                          type="button"
+                          disabled={!isAvailable}
+                          onClick={() => {
+                            setSelectedCategory(category);
+                            setErrors((prev) => ({ ...prev, category: '' }));
+                          }}
+                          className={`relative p-3 border rounded-lg transition-all text-left ${
+                            isSelected
+                              ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                              : isAvailable
+                                ? 'border-border bg-card/50 hover:border-primary/50'
+                                : 'border-border bg-muted/30 opacity-60 cursor-not-allowed'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-sm">{CATEGORY_LABELS[category]}</span>
+                            {isSelected && (
+                              <CheckCircle2 className="h-4 w-4 text-primary" />
+                            )}
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Progress value={progressPercent} className="h-1.5" />
+                            <div className="flex justify-between text-xs">
+                              <span className="text-muted-foreground">{used} / {limit}</span>
+                              <span className={remaining > 0 ? 'text-primary' : 'text-destructive'}>
+                                {remaining} left
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  {errors.category && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {errors.category}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Silhouette *</Label>
