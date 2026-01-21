@@ -85,7 +85,7 @@ export const SilhouetteInductionForm = ({
     rejectSilhouette,
   } = useSilhouetteStore();
   
-  const { fabricEntries } = useFabricStore();
+  const { fabrics, getFabricById } = useFabricStore();
 
   // Form state
   const [code, setCode] = useState('');
@@ -572,7 +572,7 @@ export const SilhouetteInductionForm = ({
                     <SelectContent>
                       {inductedFabrics.map((fabric) => (
                         <SelectItem key={fabric.id} value={fabric.id}>
-                          {fabric.artworkName} - Rs. {fabric.technicalSpecs?.costPerMeter}/m
+                          {fabric.fabricName} - Rs. {fabric.technicalSpecs?.costPerMeter}/m
                         </SelectItem>
                       ))}
                     </SelectContent>

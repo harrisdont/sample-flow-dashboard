@@ -216,7 +216,7 @@ export const DesignsTab = () => {
 
                       {fabric && (
                         <div className="text-xs text-muted-foreground mt-1">
-                          Fabric: {fabric.artworkName}
+                          Fabric: {fabric.fabricName}
                         </div>
                       )}
                     </div>

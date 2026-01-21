@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import SeasonalCollectionPlanning from "./pages/SeasonalCollectionPlanning";
 import FabricInduction from "./pages/FabricInduction";
+import Sampling from "./pages/Sampling";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/seasonal-planning" element={<SeasonalCollectionPlanning />} />
           <Route path="/fabric-induction" element={<FabricInduction />} />
+          <Route path="/sampling" element={<Sampling />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
