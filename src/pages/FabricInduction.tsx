@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Plus, Filter, Search, ChevronDown, ChevronRight, Layers, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
+import { Plus, Filter, Search, ChevronDown, ChevronRight, Layers, CheckCircle2, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,7 +14,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useFabricStore, FABRIC_STATUS_CONFIG, COMPONENT_TYPE_LABELS, FABRIC_TYPE_LABELS, FabricStatus, FabricEntry } from '@/data/fabricStore';
 import { FabricInductionForm } from '@/components/FabricInductionForm';
 import { FabricStatusBoard } from '@/components/FabricStatusBoard';
-import { differenceInDays, format } from 'date-fns';
+import { MainNav } from '@/components/MainNav';
+import { differenceInDays } from 'date-fns';
 
 const PRODUCT_LINES = [
   { id: 'woman', name: 'Woman', color: 'bg-pink-500' },
@@ -93,41 +93,30 @@ const FabricInduction = () => {
   
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link to="/seasonal-planning">
-                <Button variant="ghost" size="icon">
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Fabric Induction</h1>
-                <p className="text-sm text-muted-foreground">Track and induct fabrics for the season</p>
-              </div>
-            </div>
-            
-            <Dialog open={isAddFabricOpen} onOpenChange={setIsAddFabricOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Fabric
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Add New Fabric</DialogTitle>
-                </DialogHeader>
-                <FabricInductionForm onClose={() => setIsAddFabricOpen(false)} />
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-      </header>
+      <MainNav>
+        <Dialog open={isAddFabricOpen} onOpenChange={setIsAddFabricOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Fabric
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add New Fabric</DialogTitle>
+            </DialogHeader>
+            <FabricInductionForm onClose={() => setIsAddFabricOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      </MainNav>
       
-      <main className="container mx-auto px-6 py-6 space-y-6">
+      <div className="container mx-auto px-6 py-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-foreground">Fabric Induction</h1>
+          <p className="text-sm text-muted-foreground">Track and induct fabrics for the season</p>
+        </div>
+        
+        <div className="space-y-6">
         {/* Season Summary */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
@@ -433,7 +422,8 @@ const FabricInduction = () => {
             />
           </TabsContent>
         </Tabs>
-      </main>
+        </div>
+      </div>
     </div>
   );
 };

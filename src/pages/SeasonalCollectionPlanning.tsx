@@ -9,11 +9,11 @@ import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Settings2, ChevronDown, ChevronUp, Calendar, Layers, ClipboardList } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Settings2, ChevronDown, ChevronUp, Layers, ClipboardList, Calendar } from 'lucide-react';
 import CapsuleCollectionPlanForm from '@/components/CapsuleCollectionPlanForm';
 import MasterCalendar from '@/components/MasterCalendar';
 import CollectionsSummaryView from '@/components/CollectionsSummaryView';
+import { MainNav } from '@/components/MainNav';
 import { cn } from '@/lib/utils';
 import { LINE_COLLECTION_CAPACITY } from '@/data/capsuleCollectionData';
 interface ProductLine {
@@ -125,7 +125,6 @@ const getStatusLabel = (status: ProductLine['status']) => {
 };
 
 const SeasonalCollectionPlanning = () => {
-  const navigate = useNavigate();
   const [seasonName] = useState<string>('SS26');
   const [totalDesignCount, setTotalDesignCount] = useState<number>(100);
   const [launchPercentages, setLaunchPercentages] = useState<LaunchAllocation>(() => {
@@ -308,16 +307,10 @@ const SeasonalCollectionPlanning = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <MainNav />
+      
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="mb-4 gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Button>
           <h1 className="text-3xl font-bold text-foreground">Seasonal Collection Planning</h1>
           <p className="text-muted-foreground mt-2">
             Manage and track designs across all product lines

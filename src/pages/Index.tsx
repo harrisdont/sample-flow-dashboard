@@ -1,23 +1,22 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { LiveDashboard } from '@/components/LiveDashboard';
 import { EJobCard } from '@/components/EJobCard';
 import { SamplingBoard } from '@/components/SamplingBoard';
 import { AddNewMenu } from '@/components/AddNewMenu';
+import { MainNav } from '@/components/MainNav';
 import { mockCollections, mockSamples, mockMetrics } from '@/data/mockData';
 import { Collection, Sample } from '@/types/sample';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { LayoutDashboard, LayoutGrid, Calendar } from 'lucide-react';
+import { LayoutDashboard, LayoutGrid } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 type View = 'loading' | 'dashboard' | 'board' | 'ejob' | 'collection-detail';
 
 const Index = () => {
-  const navigate = useNavigate();
   const [currentView, setCurrentView] = useState<View>('loading');
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
@@ -138,7 +137,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="fixed top-4 right-4 z-10 flex gap-2">
+      <MainNav>
         <AddNewMenu />
         <Button
           variant={currentView === 'dashboard' ? 'default' : 'outline'}
@@ -158,16 +157,7 @@ const Index = () => {
           <LayoutGrid className="h-4 w-4" />
           Heat Map
         </Button>
-        <Button
-          variant="outline"
-          onClick={() => navigate('/seasonal-planning')}
-          size="sm"
-          className="gap-2"
-        >
-          <Calendar className="h-4 w-4" />
-          Seasonal Planning
-        </Button>
-      </div>
+      </MainNav>
 
       {currentView === 'dashboard' && (
         <LiveDashboard
