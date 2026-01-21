@@ -20,7 +20,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, Upload, X, Plus, AlertTriangle, Clock, ArrowRight, CheckCircle2, Link as LinkIcon, Sparkles } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { CalendarIcon, Upload, X, Plus, AlertTriangle, Clock, ArrowRight, CheckCircle2, Link as LinkIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { 
@@ -60,25 +67,37 @@ const gtmStrategies = [
   { id: 'winter-release', name: 'Winter Release 2025', targetDate: new Date(2025, 11, 1) },
 ];
 
-// Category labels
-const CATEGORY_LABELS: Record<keyof CategoryDesigns, string> = {
+// Category labels for main categories only
+const MAIN_CATEGORY_LABELS: Record<'onePiece' | 'twoPiece' | 'threePiece', string> = {
   onePiece: '1-Piece',
   twoPiece: '2-Piece',
   threePiece: '3-Piece',
+};
+
+// More categories (dupattas, lowers, specialized)
+const MORE_CATEGORY_LABELS: Record<'dupattas' | 'lowers', string> = {
   dupattas: 'Dupattas',
   lowers: 'Lowers',
 };
+
+const SPECIALIZED_OPTIONS: { value: SpecializedCategory; label: string; description: string }[] = [
+  { value: 'lehenga-set', label: 'Lehenga Set', description: 'Lehenga + Choli + Dupatta' },
+  { value: 'saree-set', label: 'Saree Set', description: 'Saree + Blouse' },
+];
+
+// Category extras that can be added to any category
+type CategoryExtras = {
+  hasLining: boolean;
+  hasSlip: boolean;
+  hasPetticoat: boolean;
+};
+
+type CategoryWithExtras = keyof CategoryDesigns | 'lehenga-set' | 'saree-set';
 
 // Composition options
 const TWO_PIECE_OPTIONS: { value: TwoPieceComposition; label: string }[] = [
   { value: 'shirt-lowers', label: 'Shirt + Lowers' },
   { value: 'shirt-dupatta', label: 'Shirt + Dupatta' },
-];
-
-const SPECIALIZED_OPTIONS: { value: SpecializedCategory; label: string; description: string }[] = [
-  { value: 'none', label: 'None', description: 'No specialized garments' },
-  { value: 'lehenga-set', label: 'Lehenga Set', description: 'Lehenga + Choli + Dupatta' },
-  { value: 'saree-set', label: 'Saree Set', description: 'Saree + Blouse' },
 ];
 
 const CapsuleCollectionPlanForm = ({
@@ -119,6 +138,17 @@ const CapsuleCollectionPlanForm = ({
   const [fabrics, setFabrics] = useState<string[]>(existingCapsule?.fabrics || []);
   const [newFabric, setNewFabric] = useState('');
   const [selectedTechniques, setSelectedTechniques] = useState<string[]>(existingCapsule?.selectedTechniques || []);
+  const [moreCategoriesOpen, setMoreCategoriesOpen] = useState(false);
+  const [categoryExtrasPopover, setCategoryExtrasPopover] = useState<CategoryWithExtras | null>(null);
+  const [perCategoryExtras, setPerCategoryExtras] = useState<Record<CategoryWithExtras, CategoryExtras>>({
+    onePiece: { hasLining: false, hasSlip: false, hasPetticoat: false },
+    twoPiece: { hasLining: false, hasSlip: false, hasPetticoat: false },
+    threePiece: { hasLining: false, hasSlip: false, hasPetticoat: false },
+    dupattas: { hasLining: false, hasSlip: false, hasPetticoat: false },
+    lowers: { hasLining: false, hasSlip: false, hasPetticoat: false },
+    'lehenga-set': { hasLining: false, hasSlip: false, hasPetticoat: false },
+    'saree-set': { hasLining: false, hasSlip: false, hasPetticoat: true },
+  });
 
   // Load existing data when lineId changes
   useEffect(() => {
@@ -195,14 +225,25 @@ const CapsuleCollectionPlanForm = ({
     }));
   };
 
-  const handleGarmentExtrasChange = (field: keyof CategoryComposition['garmentExtras'], value: boolean) => {
-    setCategoryComposition(prev => ({
+  const handlePerCategoryExtrasChange = (category: CategoryWithExtras, field: keyof CategoryExtras, value: boolean) => {
+    setPerCategoryExtras(prev => ({
       ...prev,
-      garmentExtras: {
-        ...prev.garmentExtras,
+      [category]: {
+        ...prev[category],
         [field]: value,
       },
     }));
+    // Also update the global garmentExtras for fabric calculation
+    if (category === categoryComposition.specializedCategory || 
+        (categoryDesigns[category as keyof CategoryDesigns] > 0)) {
+      setCategoryComposition(prev => ({
+        ...prev,
+        garmentExtras: {
+          ...prev.garmentExtras,
+          [field]: value || prev.garmentExtras[field],
+        },
+      }));
+    }
   };
 
   const handleFabricRequirementChange = (field: keyof FabricRequirements, value: string) => {
@@ -345,13 +386,45 @@ const CapsuleCollectionPlanForm = ({
           </Badge>
         </div>
         
-        {/* Standard Categories */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {/* Main Categories (1pc, 2pc, 3pc) */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {/* 1-Piece */}
           <div className="space-y-1">
-            <Label htmlFor="onePiece" className="text-xs text-muted-foreground">
-              {CATEGORY_LABELS.onePiece}
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="onePiece" className="text-xs text-muted-foreground">
+                {MAIN_CATEGORY_LABELS.onePiece}
+              </Label>
+              <Popover open={categoryExtrasPopover === 'onePiece'} onOpenChange={(open) => setCategoryExtrasPopover(open ? 'onePiece' : null)}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-5 w-5">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-3" align="end">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Add Components</Label>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="onePiece-lining"
+                          checked={perCategoryExtras.onePiece.hasLining}
+                          onCheckedChange={(checked) => handlePerCategoryExtrasChange('onePiece', 'hasLining', !!checked)}
+                        />
+                        <label htmlFor="onePiece-lining" className="text-sm cursor-pointer">Lining</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="onePiece-slip"
+                          checked={perCategoryExtras.onePiece.hasSlip}
+                          onCheckedChange={(checked) => handlePerCategoryExtrasChange('onePiece', 'hasSlip', !!checked)}
+                        />
+                        <label htmlFor="onePiece-slip" className="text-sm cursor-pointer">Slip</label>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
             <Input
               id="onePiece"
               type="number"
@@ -360,13 +433,51 @@ const CapsuleCollectionPlanForm = ({
               onChange={(e) => handleCategoryDesignChange('onePiece', parseInt(e.target.value) || 0)}
               className="h-9"
             />
+            {(perCategoryExtras.onePiece.hasLining || perCategoryExtras.onePiece.hasSlip) && (
+              <div className="flex flex-wrap gap-1">
+                {perCategoryExtras.onePiece.hasLining && <Badge variant="secondary" className="text-[10px] h-4">+Lining</Badge>}
+                {perCategoryExtras.onePiece.hasSlip && <Badge variant="secondary" className="text-[10px] h-4">+Slip</Badge>}
+              </div>
+            )}
           </div>
 
           {/* 2-Piece with Dropdown */}
           <div className="space-y-1">
-            <Label htmlFor="twoPiece" className="text-xs text-muted-foreground">
-              {CATEGORY_LABELS.twoPiece}
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="twoPiece" className="text-xs text-muted-foreground">
+                {MAIN_CATEGORY_LABELS.twoPiece}
+              </Label>
+              <Popover open={categoryExtrasPopover === 'twoPiece'} onOpenChange={(open) => setCategoryExtrasPopover(open ? 'twoPiece' : null)}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-5 w-5">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-3" align="end">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Add Components</Label>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="twoPiece-lining"
+                          checked={perCategoryExtras.twoPiece.hasLining}
+                          onCheckedChange={(checked) => handlePerCategoryExtrasChange('twoPiece', 'hasLining', !!checked)}
+                        />
+                        <label htmlFor="twoPiece-lining" className="text-sm cursor-pointer">Lining</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="twoPiece-slip"
+                          checked={perCategoryExtras.twoPiece.hasSlip}
+                          onCheckedChange={(checked) => handlePerCategoryExtrasChange('twoPiece', 'hasSlip', !!checked)}
+                        />
+                        <label htmlFor="twoPiece-slip" className="text-sm cursor-pointer">Slip</label>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
             <div className="space-y-1.5">
               <Input
                 id="twoPiece"
@@ -393,14 +504,52 @@ const CapsuleCollectionPlanForm = ({
                   </SelectContent>
                 </Select>
               )}
+              {(perCategoryExtras.twoPiece.hasLining || perCategoryExtras.twoPiece.hasSlip) && (
+                <div className="flex flex-wrap gap-1">
+                  {perCategoryExtras.twoPiece.hasLining && <Badge variant="secondary" className="text-[10px] h-4">+Lining</Badge>}
+                  {perCategoryExtras.twoPiece.hasSlip && <Badge variant="secondary" className="text-[10px] h-4">+Slip</Badge>}
+                </div>
+              )}
             </div>
           </div>
 
           {/* 3-Piece with fixed composition */}
           <div className="space-y-1">
-            <Label htmlFor="threePiece" className="text-xs text-muted-foreground">
-              {CATEGORY_LABELS.threePiece}
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="threePiece" className="text-xs text-muted-foreground">
+                {MAIN_CATEGORY_LABELS.threePiece}
+              </Label>
+              <Popover open={categoryExtrasPopover === 'threePiece'} onOpenChange={(open) => setCategoryExtrasPopover(open ? 'threePiece' : null)}>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-5 w-5">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-3" align="end">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium">Add Components</Label>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="threePiece-lining"
+                          checked={perCategoryExtras.threePiece.hasLining}
+                          onCheckedChange={(checked) => handlePerCategoryExtrasChange('threePiece', 'hasLining', !!checked)}
+                        />
+                        <label htmlFor="threePiece-lining" className="text-sm cursor-pointer">Lining</label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="threePiece-slip"
+                          checked={perCategoryExtras.threePiece.hasSlip}
+                          onCheckedChange={(checked) => handlePerCategoryExtrasChange('threePiece', 'hasSlip', !!checked)}
+                        />
+                        <label htmlFor="threePiece-slip" className="text-sm cursor-pointer">Slip</label>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
             <div className="space-y-1.5">
               <Input
                 id="threePiece"
@@ -413,120 +562,358 @@ const CapsuleCollectionPlanForm = ({
               {categoryDesigns.threePiece > 0 && (
                 <p className="text-[10px] text-muted-foreground">Shirt + Lowers + Dupatta</p>
               )}
+              {(perCategoryExtras.threePiece.hasLining || perCategoryExtras.threePiece.hasSlip) && (
+                <div className="flex flex-wrap gap-1">
+                  {perCategoryExtras.threePiece.hasLining && <Badge variant="secondary" className="text-[10px] h-4">+Lining</Badge>}
+                  {perCategoryExtras.threePiece.hasSlip && <Badge variant="secondary" className="text-[10px] h-4">+Slip</Badge>}
+                </div>
+              )}
             </div>
-          </div>
-
-          {/* Dupattas */}
-          <div className="space-y-1">
-            <Label htmlFor="dupattas" className="text-xs text-muted-foreground">
-              {CATEGORY_LABELS.dupattas}
-            </Label>
-            <Input
-              id="dupattas"
-              type="number"
-              min={0}
-              value={categoryDesigns.dupattas}
-              onChange={(e) => handleCategoryDesignChange('dupattas', parseInt(e.target.value) || 0)}
-              className="h-9"
-            />
-          </div>
-
-          {/* Lowers */}
-          <div className="space-y-1">
-            <Label htmlFor="lowers" className="text-xs text-muted-foreground">
-              {CATEGORY_LABELS.lowers}
-            </Label>
-            <Input
-              id="lowers"
-              type="number"
-              min={0}
-              value={categoryDesigns.lowers}
-              onChange={(e) => handleCategoryDesignChange('lowers', parseInt(e.target.value) || 0)}
-              className="h-9"
-            />
           </div>
         </div>
 
-        {/* Specialized Categories */}
-        <Card className="p-4 bg-muted/30">
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="h-4 w-4 text-primary" />
-            <Label className="text-sm font-medium">Specialized Categories</Label>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Category Type</Label>
-              <Select 
-                value={categoryComposition.specializedCategory} 
-                onValueChange={(v) => handleCompositionChange('specializedCategory', v as SpecializedCategory)}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SPECIALIZED_OPTIONS.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      <div className="flex flex-col">
-                        <span>{opt.label}</span>
-                        <span className="text-xs text-muted-foreground">{opt.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {categoryComposition.specializedCategory !== 'none' && (
-              <>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    {categoryComposition.specializedCategory === 'lehenga-set' ? 'Lehenga Sets' : 'Saree Sets'} Count
-                  </Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={categoryComposition.specializedCount}
-                    onChange={(e) => handleCompositionChange('specializedCount', parseInt(e.target.value) || 0)}
-                    className="h-9"
-                  />
-                </div>
-
-                {/* Extras for specialized categories */}
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Additional Components</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="hasLining"
-                        checked={categoryComposition.garmentExtras.hasLining}
-                        onCheckedChange={(checked) => handleGarmentExtrasChange('hasLining', !!checked)}
-                      />
-                      <label htmlFor="hasLining" className="text-sm cursor-pointer">Lining</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="hasSlip"
-                        checked={categoryComposition.garmentExtras.hasSlip}
-                        onCheckedChange={(checked) => handleGarmentExtrasChange('hasSlip', !!checked)}
-                      />
-                      <label htmlFor="hasSlip" className="text-sm cursor-pointer">Slip</label>
-                    </div>
-                    {categoryComposition.specializedCategory === 'saree-set' && (
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="hasPetticoat"
-                          checked={categoryComposition.garmentExtras.hasPetticoat}
-                          onCheckedChange={(checked) => handleGarmentExtrasChange('hasPetticoat', !!checked)}
-                        />
-                        <label htmlFor="hasPetticoat" className="text-sm cursor-pointer">Petticoat</label>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
+        {/* Selected More Categories - shown when they have values */}
+        {(categoryDesigns.dupattas > 0 || categoryDesigns.lowers > 0 || categoryComposition.specializedCategory !== 'none') && (
+          <div className="flex flex-wrap gap-2">
+            {categoryDesigns.dupattas > 0 && (
+              <Badge variant="outline" className="gap-1 py-1.5 px-3">
+                <span className="font-medium">{categoryDesigns.dupattas}</span> Dupattas
+                {(perCategoryExtras.dupattas.hasLining || perCategoryExtras.dupattas.hasSlip) && (
+                  <span className="text-muted-foreground ml-1">
+                    ({perCategoryExtras.dupattas.hasLining && 'Lining'}{perCategoryExtras.dupattas.hasLining && perCategoryExtras.dupattas.hasSlip && ', '}{perCategoryExtras.dupattas.hasSlip && 'Slip'})
+                  </span>
+                )}
+                <button 
+                  type="button" 
+                  onClick={() => handleCategoryDesignChange('dupattas', 0)}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {categoryDesigns.lowers > 0 && (
+              <Badge variant="outline" className="gap-1 py-1.5 px-3">
+                <span className="font-medium">{categoryDesigns.lowers}</span> Lowers
+                {(perCategoryExtras.lowers.hasLining || perCategoryExtras.lowers.hasSlip) && (
+                  <span className="text-muted-foreground ml-1">
+                    ({perCategoryExtras.lowers.hasLining && 'Lining'}{perCategoryExtras.lowers.hasLining && perCategoryExtras.lowers.hasSlip && ', '}{perCategoryExtras.lowers.hasSlip && 'Slip'})
+                  </span>
+                )}
+                <button 
+                  type="button" 
+                  onClick={() => handleCategoryDesignChange('lowers', 0)}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {categoryComposition.specializedCategory === 'lehenga-set' && categoryComposition.specializedCount > 0 && (
+              <Badge variant="outline" className="gap-1 py-1.5 px-3">
+                <span className="font-medium">{categoryComposition.specializedCount}</span> Lehenga Sets
+                {(perCategoryExtras['lehenga-set'].hasLining || perCategoryExtras['lehenga-set'].hasSlip) && (
+                  <span className="text-muted-foreground ml-1">
+                    ({perCategoryExtras['lehenga-set'].hasLining && 'Lining'}{perCategoryExtras['lehenga-set'].hasLining && perCategoryExtras['lehenga-set'].hasSlip && ', '}{perCategoryExtras['lehenga-set'].hasSlip && 'Slip'})
+                  </span>
+                )}
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    handleCompositionChange('specializedCategory', 'none');
+                    handleCompositionChange('specializedCount', 0);
+                  }}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )}
+            {categoryComposition.specializedCategory === 'saree-set' && categoryComposition.specializedCount > 0 && (
+              <Badge variant="outline" className="gap-1 py-1.5 px-3">
+                <span className="font-medium">{categoryComposition.specializedCount}</span> Saree Sets
+                {(perCategoryExtras['saree-set'].hasLining || perCategoryExtras['saree-set'].hasSlip || perCategoryExtras['saree-set'].hasPetticoat) && (
+                  <span className="text-muted-foreground ml-1">
+                    ({[
+                      perCategoryExtras['saree-set'].hasLining && 'Lining',
+                      perCategoryExtras['saree-set'].hasSlip && 'Slip',
+                      perCategoryExtras['saree-set'].hasPetticoat && 'Petticoat'
+                    ].filter(Boolean).join(', ')})
+                  </span>
+                )}
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    handleCompositionChange('specializedCategory', 'none');
+                    handleCompositionChange('specializedCount', 0);
+                  }}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
             )}
           </div>
-        </Card>
+        )}
+
+        {/* More Categories Button + Dialog */}
+        <Dialog open={moreCategoriesOpen} onOpenChange={setMoreCategoriesOpen}>
+          <DialogTrigger asChild>
+            <Button type="button" variant="outline" size="sm" className="gap-2">
+              <Plus className="h-4 w-4" />
+              More Categories
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>More Categories</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              {/* Dupattas */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="dialog-dupattas" className="text-sm">{MORE_CATEGORY_LABELS.dupattas}</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-3" align="end">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Add Components</Label>
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="dupattas-lining"
+                              checked={perCategoryExtras.dupattas.hasLining}
+                              onCheckedChange={(checked) => handlePerCategoryExtrasChange('dupattas', 'hasLining', !!checked)}
+                            />
+                            <label htmlFor="dupattas-lining" className="text-sm cursor-pointer">Lining</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="dupattas-slip"
+                              checked={perCategoryExtras.dupattas.hasSlip}
+                              onCheckedChange={(checked) => handlePerCategoryExtrasChange('dupattas', 'hasSlip', !!checked)}
+                            />
+                            <label htmlFor="dupattas-slip" className="text-sm cursor-pointer">Slip</label>
+                          </div>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Input
+                  id="dialog-dupattas"
+                  type="number"
+                  min={0}
+                  value={categoryDesigns.dupattas}
+                  onChange={(e) => handleCategoryDesignChange('dupattas', parseInt(e.target.value) || 0)}
+                  className="h-9"
+                />
+                {(perCategoryExtras.dupattas.hasLining || perCategoryExtras.dupattas.hasSlip) && (
+                  <div className="flex flex-wrap gap-1">
+                    {perCategoryExtras.dupattas.hasLining && <Badge variant="secondary" className="text-[10px] h-4">+Lining</Badge>}
+                    {perCategoryExtras.dupattas.hasSlip && <Badge variant="secondary" className="text-[10px] h-4">+Slip</Badge>}
+                  </div>
+                )}
+              </div>
+
+              {/* Lowers */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="dialog-lowers" className="text-sm">{MORE_CATEGORY_LABELS.lowers}</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-3" align="end">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Add Components</Label>
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="lowers-lining"
+                              checked={perCategoryExtras.lowers.hasLining}
+                              onCheckedChange={(checked) => handlePerCategoryExtrasChange('lowers', 'hasLining', !!checked)}
+                            />
+                            <label htmlFor="lowers-lining" className="text-sm cursor-pointer">Lining</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="lowers-slip"
+                              checked={perCategoryExtras.lowers.hasSlip}
+                              onCheckedChange={(checked) => handlePerCategoryExtrasChange('lowers', 'hasSlip', !!checked)}
+                            />
+                            <label htmlFor="lowers-slip" className="text-sm cursor-pointer">Slip</label>
+                          </div>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Input
+                  id="dialog-lowers"
+                  type="number"
+                  min={0}
+                  value={categoryDesigns.lowers}
+                  onChange={(e) => handleCategoryDesignChange('lowers', parseInt(e.target.value) || 0)}
+                  className="h-9"
+                />
+                {(perCategoryExtras.lowers.hasLining || perCategoryExtras.lowers.hasSlip) && (
+                  <div className="flex flex-wrap gap-1">
+                    {perCategoryExtras.lowers.hasLining && <Badge variant="secondary" className="text-[10px] h-4">+Lining</Badge>}
+                    {perCategoryExtras.lowers.hasSlip && <Badge variant="secondary" className="text-[10px] h-4">+Slip</Badge>}
+                  </div>
+                )}
+              </div>
+
+              {/* Specialized - Lehenga Set */}
+              <div className="space-y-2 pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm">Lehenga Set</Label>
+                    <p className="text-xs text-muted-foreground">Lehenga + Choli + Dupatta</p>
+                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-3" align="end">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Add Components</Label>
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="lehenga-lining"
+                              checked={perCategoryExtras['lehenga-set'].hasLining}
+                              onCheckedChange={(checked) => handlePerCategoryExtrasChange('lehenga-set', 'hasLining', !!checked)}
+                            />
+                            <label htmlFor="lehenga-lining" className="text-sm cursor-pointer">Lining</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="lehenga-slip"
+                              checked={perCategoryExtras['lehenga-set'].hasSlip}
+                              onCheckedChange={(checked) => handlePerCategoryExtrasChange('lehenga-set', 'hasSlip', !!checked)}
+                            />
+                            <label htmlFor="lehenga-slip" className="text-sm cursor-pointer">Slip</label>
+                          </div>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Input
+                  type="number"
+                  min={0}
+                  value={categoryComposition.specializedCategory === 'lehenga-set' ? categoryComposition.specializedCount : 0}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    if (val > 0) {
+                      handleCompositionChange('specializedCategory', 'lehenga-set');
+                      handleCompositionChange('specializedCount', val);
+                    } else if (categoryComposition.specializedCategory === 'lehenga-set') {
+                      handleCompositionChange('specializedCount', 0);
+                    }
+                  }}
+                  className="h-9"
+                  disabled={categoryComposition.specializedCategory === 'saree-set' && categoryComposition.specializedCount > 0}
+                />
+                {(perCategoryExtras['lehenga-set'].hasLining || perCategoryExtras['lehenga-set'].hasSlip) && categoryComposition.specializedCategory === 'lehenga-set' && (
+                  <div className="flex flex-wrap gap-1">
+                    {perCategoryExtras['lehenga-set'].hasLining && <Badge variant="secondary" className="text-[10px] h-4">+Lining</Badge>}
+                    {perCategoryExtras['lehenga-set'].hasSlip && <Badge variant="secondary" className="text-[10px] h-4">+Slip</Badge>}
+                  </div>
+                )}
+              </div>
+
+              {/* Specialized - Saree Set */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label className="text-sm">Saree Set</Label>
+                    <p className="text-xs text-muted-foreground">Saree + Blouse</p>
+                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48 p-3" align="end">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-medium">Add Components</Label>
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="saree-lining"
+                              checked={perCategoryExtras['saree-set'].hasLining}
+                              onCheckedChange={(checked) => handlePerCategoryExtrasChange('saree-set', 'hasLining', !!checked)}
+                            />
+                            <label htmlFor="saree-lining" className="text-sm cursor-pointer">Lining</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="saree-slip"
+                              checked={perCategoryExtras['saree-set'].hasSlip}
+                              onCheckedChange={(checked) => handlePerCategoryExtrasChange('saree-set', 'hasSlip', !!checked)}
+                            />
+                            <label htmlFor="saree-slip" className="text-sm cursor-pointer">Slip</label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="saree-petticoat"
+                              checked={perCategoryExtras['saree-set'].hasPetticoat}
+                              onCheckedChange={(checked) => handlePerCategoryExtrasChange('saree-set', 'hasPetticoat', !!checked)}
+                            />
+                            <label htmlFor="saree-petticoat" className="text-sm cursor-pointer">Petticoat</label>
+                          </div>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <Input
+                  type="number"
+                  min={0}
+                  value={categoryComposition.specializedCategory === 'saree-set' ? categoryComposition.specializedCount : 0}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 0;
+                    if (val > 0) {
+                      handleCompositionChange('specializedCategory', 'saree-set');
+                      handleCompositionChange('specializedCount', val);
+                    } else if (categoryComposition.specializedCategory === 'saree-set') {
+                      handleCompositionChange('specializedCount', 0);
+                    }
+                  }}
+                  className="h-9"
+                  disabled={categoryComposition.specializedCategory === 'lehenga-set' && categoryComposition.specializedCount > 0}
+                />
+                {categoryComposition.specializedCategory === 'saree-set' && (perCategoryExtras['saree-set'].hasLining || perCategoryExtras['saree-set'].hasSlip || perCategoryExtras['saree-set'].hasPetticoat) && (
+                  <div className="flex flex-wrap gap-1">
+                    {perCategoryExtras['saree-set'].hasLining && <Badge variant="secondary" className="text-[10px] h-4">+Lining</Badge>}
+                    {perCategoryExtras['saree-set'].hasSlip && <Badge variant="secondary" className="text-[10px] h-4">+Slip</Badge>}
+                    {perCategoryExtras['saree-set'].hasPetticoat && <Badge variant="secondary" className="text-[10px] h-4">+Petticoat</Badge>}
+                  </div>
+                )}
+              </div>
+
+              <Button 
+                type="button" 
+                onClick={() => setMoreCategoriesOpen(false)} 
+                className="w-full mt-4"
+              >
+                Done
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {totalCategoryDesigns > allocatedDesigns && (
           <p className="text-xs text-destructive flex items-center gap-1">
