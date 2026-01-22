@@ -5,8 +5,7 @@ import { NotificationBell } from '@/components/alerts/NotificationBell';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { useTaskStore } from '@/data/taskStore';
 import { useDesignStore } from '@/data/designStore';
-import { useCapsuleStore } from '@/data/capsuleCollectionData';
-import { useSilhouetteStore } from '@/data/silhouetteStore';
+import { useCapsuleStore, CapsuleCollection } from '@/data/capsuleCollectionData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -37,20 +36,20 @@ import { cn } from '@/lib/utils';
 
 const DesignHub = () => {
   const { currentUser, getUsersByLine } = useCurrentUser();
-  const { tasks, getTasksByAssignee, getWorkloadSummary } = useTaskStore();
-  const { designs, getDesignsByCollection, getDesignCountByCategory } = useDesignStore();
-  const { collections } = useCapsuleStore();
+  const { tasks, getTasksByAssignee } = useTaskStore();
+  const { getDesignCountByCategory } = useDesignStore();
+  const { capsules } = useCapsuleStore();
   const [activeTab, setActiveTab] = useState('collections');
   const [isNewDesignOpen, setIsNewDesignOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Get collections for user's assigned lines
-  const myCollections = useMemo(() => {
+  const myCollections = useMemo((): CapsuleCollection[] => {
     if (!currentUser?.assignedLines) return [];
-    return Object.values(collections).filter(c => 
-      currentUser.assignedLines?.includes(c.productLine as any)
+    return Object.values(capsules).filter((c: CapsuleCollection) => 
+      currentUser.assignedLines?.includes(c.lineId as any)
     );
-  }, [collections, currentUser]);
+  }, [capsules, currentUser]);
 
   // Get team members for user's lines
   const teamMembers = useMemo(() => {
@@ -228,8 +227,8 @@ const DesignHub = () => {
                   myCollections.map(collection => {
                     const designCounts = getDesignCountByCategory(collection.id);
                     const totalDesigns = Object.values(designCounts).reduce((a, b) => a + b, 0);
-                    const plannedTotal = collection.categoryAllocation 
-                      ? Object.values(collection.categoryAllocation).reduce((a, b) => a + b, 0)
+                    const plannedTotal = collection.categoryDesigns 
+                      ? Object.values(collection.categoryDesigns).reduce((a, b) => a + b, 0)
                       : 0;
                     const progress = plannedTotal > 0 ? Math.round((totalDesigns / plannedTotal) * 100) : 0;
                     const daysUntil = differenceInDays(collection.targetInStoreDate, new Date());
@@ -239,9 +238,9 @@ const DesignHub = () => {
                         <CardHeader className="pb-3">
                           <div className="flex items-start justify-between">
                             <div>
-                              <CardTitle className="text-base">{collection.name}</CardTitle>
+                              <CardTitle className="text-base">{collection.collectionName}</CardTitle>
                               <CardDescription className="capitalize">
-                                {collection.productLine} • In-store {format(collection.targetInStoreDate, 'MMM d')}
+                                {collection.lineName} • In-store {format(collection.targetInStoreDate, 'MMM d')}
                               </CardDescription>
                             </div>
                             <Badge 

@@ -5,7 +5,7 @@ import { NotificationBell } from '@/components/alerts/NotificationBell';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { useTaskStore } from '@/data/taskStore';
 import { useNotificationStore } from '@/data/notificationStore';
-import { useCapsuleStore } from '@/data/capsuleCollectionData';
+import { useCapsuleStore, CapsuleCollection } from '@/data/capsuleCollectionData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -33,7 +33,7 @@ const DirectorDashboard = () => {
   const { currentUser } = useCurrentUser();
   const { tasks, getOverdueTasks, getDueTodayTasks, getDepartmentWorkload } = useTaskStore();
   const { getNotificationsForUser } = useNotificationStore();
-  const { collections } = useCapsuleStore();
+  const { capsules } = useCapsuleStore();
 
   // Calculate KPIs
   const kpis = useMemo(() => {
@@ -47,8 +47,9 @@ const DirectorDashboard = () => {
     const sourcingWorkload = getDepartmentWorkload('sourcing');
     const samplingWorkload = getDepartmentWorkload('sampling');
 
-    const totalCollections = Object.keys(collections).length;
-    const activeCollections = Object.values(collections).filter(c => {
+    const totalCollections = Object.keys(capsules).length;
+    const allCollections = Object.values(capsules) as CapsuleCollection[];
+    const activeCollections = allCollections.filter(c => {
       const daysUntil = differenceInDays(c.targetInStoreDate, new Date());
       return daysUntil > 0 && daysUntil <= 90;
     }).length;
@@ -68,7 +69,7 @@ const DirectorDashboard = () => {
       totalCollections,
       activeCollections,
     };
-  }, [tasks, collections]);
+  }, [tasks, capsules]);
 
   // Get critical alerts
   const criticalAlerts = useMemo(() => {
@@ -80,7 +81,7 @@ const DirectorDashboard = () => {
 
   // Collection status breakdown
   const collectionStatus = useMemo(() => {
-    const cols = Object.values(collections);
+    const cols = Object.values(capsules) as CapsuleCollection[];
     const now = new Date();
     
     return {
@@ -91,7 +92,7 @@ const DirectorDashboard = () => {
       }).length,
       delayed: cols.filter(c => differenceInDays(c.targetInStoreDate, now) <= 0).length,
     };
-  }, [collections]);
+  }, [capsules]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -344,7 +345,7 @@ const DirectorDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {Object.values(collections).slice(0, 8).map(collection => {
+              {(Object.values(capsules) as CapsuleCollection[]).slice(0, 8).map(collection => {
                 const daysUntil = differenceInDays(collection.targetInStoreDate, new Date());
                 const status = daysUntil <= 0 ? 'delayed' : daysUntil <= 14 ? 'at-risk' : 'on-track';
                 
@@ -360,8 +361,8 @@ const DirectorDashboard = () => {
                   >
                     <div className="flex items-start justify-between">
                       <div>
-                        <h4 className="font-medium text-sm">{collection.name}</h4>
-                        <p className="text-xs text-muted-foreground capitalize">{collection.productLine}</p>
+                        <h4 className="font-medium text-sm">{collection.collectionName}</h4>
+                        <p className="text-xs text-muted-foreground capitalize">{collection.lineName}</p>
                       </div>
                       <Badge 
                         variant="outline"

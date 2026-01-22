@@ -33,7 +33,6 @@ import { ProcessStage } from '@/types/sample';
 // Sampling stages with operator types
 const SAMPLING_STAGES: { id: ProcessStage; label: string; operatorType: string }[] = [
   { id: 'pattern', label: 'Pattern Making', operatorType: 'Pattern Maker' },
-  { id: 'cutting', label: 'Cutting', operatorType: 'Cutter' },
   { id: 'semi-stitching', label: 'Semi Stitching', operatorType: 'Stitcher' },
   { id: 'complete-stitching', label: 'Complete Stitching', operatorType: 'Master Tailor' },
   { id: 'multihead', label: 'Multihead', operatorType: 'Machine Operator' },
