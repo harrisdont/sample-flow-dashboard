@@ -52,16 +52,16 @@ const SourcingDashboard = () => {
   const treatmentFabrics = useMemo(() => {
     return Object.values(fabrics).filter(f => 
       f.status === 'in-base-treatment' || 
-      f.status === 'ready-for-surface' ||
-      (f.baseTreatmentType !== 'solid' && f.status !== 'inducted')
+      f.status === 'in-surface-treatment' ||
+      (f.baseTreatmentType !== 'none' && f.status !== 'inducted')
     );
   }, [fabrics]);
 
   // Calculate treatment stage counts
   const treatmentCounts = useMemo(() => {
     return {
-      dyeing: treatmentFabrics.filter(f => f.baseTreatmentType === 'dyed').length,
-      printing: treatmentFabrics.filter(f => f.baseTreatmentType === 'printed').length,
+      dyeing: treatmentFabrics.filter(f => f.baseTreatmentType === 'dyeing').length,
+      printing: treatmentFabrics.filter(f => f.baseTreatmentType === 'printing').length,
       multihead: treatmentFabrics.filter(f => f.surfaceTreatments?.includes('multihead')).length,
     };
   }, [treatmentFabrics]);
@@ -247,8 +247,8 @@ const SourcingDashboard = () => {
                       .filter(f => !searchQuery || f.fabricName.toLowerCase().includes(searchQuery.toLowerCase()))
                       .map(fabric => {
                         const statusConfig = FABRIC_STATUS_CONFIG[fabric.status];
-                        const daysUntil = fabric.inductionDeadline 
-                          ? differenceInDays(fabric.inductionDeadline, new Date())
+                        const daysUntil = fabric.updatedAt 
+                          ? differenceInDays(new Date(fabric.updatedAt.getTime() + 7 * 24 * 60 * 60 * 1000), new Date())
                           : null;
                         
                         return (
@@ -258,7 +258,7 @@ const SourcingDashboard = () => {
                                 <div>
                                   <h4 className="font-medium">{fabric.fabricName}</h4>
                                   <p className="text-sm text-muted-foreground capitalize">
-                                    {fabric.collectionName} • {fabric.productLine}
+                                    {fabric.collectionName} • {fabric.lineName}
                                   </p>
                                 </div>
                                 <Badge 
