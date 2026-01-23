@@ -25,34 +25,37 @@ import {
   Zap,
   Layers,
   Target,
+  BarChart3,
 } from 'lucide-react';
 import { format, differenceInDays, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ProcessStage } from '@/types/sample';
+import { detectBottlenecks, StageConfig, OperatorData, SampleData } from '@/lib/bottleneckDetector';
+import { BottleneckAnalysisPanel } from '@/components/sampling/BottleneckAnalysisPanel';
 
-// Sampling stages with operator types
-const SAMPLING_STAGES: { id: ProcessStage; label: string; operatorType: string }[] = [
+// Sampling stages with operator types and parallelization options
+const SAMPLING_STAGES: StageConfig[] = [
   { id: 'pattern', label: 'Pattern Making', operatorType: 'Pattern Maker' },
-  { id: 'semi-stitching', label: 'Semi Stitching', operatorType: 'Stitcher' },
-  { id: 'complete-stitching', label: 'Complete Stitching', operatorType: 'Master Tailor' },
-  { id: 'multihead', label: 'Multihead', operatorType: 'Machine Operator' },
-  { id: 'pakki', label: 'Pakki', operatorType: 'Pakki Operator' },
-  { id: 'ari-dori', label: 'Ari/Dori', operatorType: 'Ari/Dori Operator' },
-  { id: 'cottage-work', label: 'Cottage Work', operatorType: 'Cottage Worker' },
-  { id: 'hand-finishes', label: 'Hand Finishes', operatorType: 'Finisher' },
+  { id: 'semi-stitching', label: 'Semi Stitching', operatorType: 'Stitcher', dependsOn: ['pattern'] },
+  { id: 'complete-stitching', label: 'Complete Stitching', operatorType: 'Master Tailor', dependsOn: ['semi-stitching'] },
+  { id: 'multihead', label: 'Multihead', operatorType: 'Machine Operator', canParallelize: ['pakki'] },
+  { id: 'pakki', label: 'Pakki', operatorType: 'Pakki Operator', canParallelize: ['multihead', 'ari-dori'] },
+  { id: 'ari-dori', label: 'Ari/Dori', operatorType: 'Ari/Dori Operator', canParallelize: ['pakki', 'cottage-work'] },
+  { id: 'cottage-work', label: 'Cottage Work', operatorType: 'Cottage Worker', canParallelize: ['ari-dori'] },
+  { id: 'hand-finishes', label: 'Hand Finishes', operatorType: 'Finisher', dependsOn: ['cottage-work'] },
 ];
 
-// Mock operators for each stage
-const MOCK_OPERATORS = [
+// Mock operators for each stage with cross-training capabilities
+const MOCK_OPERATORS: OperatorData[] = [
   { id: 'op-1', name: 'Rashid Ali', skill: 'pattern', capacity: 8 },
-  { id: 'op-2', name: 'Imran Khan', skill: 'cutting', capacity: 10 },
-  { id: 'op-3', name: 'Saleem Ahmed', skill: 'semi-stitching', capacity: 6 },
+  { id: 'op-2', name: 'Imran Khan', skill: 'semi-stitching', capacity: 10 },
+  { id: 'op-3', name: 'Saleem Ahmed', skill: 'semi-stitching', capacity: 6, crossTrainedSkills: ['complete-stitching'] },
   { id: 'op-4', name: 'Farhan Malik', skill: 'complete-stitching', capacity: 4 },
   { id: 'op-5', name: 'Tariq Hassan', skill: 'multihead', capacity: 12 },
-  { id: 'op-6', name: 'Naveed Shah', skill: 'pakki', capacity: 5 },
-  { id: 'op-7', name: 'Waseem Akhtar', skill: 'ari-dori', capacity: 4 },
+  { id: 'op-6', name: 'Naveed Shah', skill: 'pakki', capacity: 5, crossTrainedSkills: ['ari-dori'] },
+  { id: 'op-7', name: 'Waseem Akhtar', skill: 'ari-dori', capacity: 4, crossTrainedSkills: ['pakki'] },
   { id: 'op-8', name: 'Jameel Bhatti', skill: 'cottage-work', capacity: 3 },
-  { id: 'op-9', name: 'Kamran Yousuf', skill: 'hand-finishes', capacity: 6 },
+  { id: 'op-9', name: 'Kamran Yousuf', skill: 'hand-finishes', capacity: 6, crossTrainedSkills: ['cottage-work'] },
   { id: 'op-10', name: 'Asif Raza', skill: 'semi-stitching', capacity: 6 },
   { id: 'op-11', name: 'Bilal Hussain', skill: 'pakki', capacity: 5 },
 ];
@@ -98,7 +101,20 @@ const SamplingFloorDashboard = () => {
     });
   }, [samplesByStage]);
 
-  // Detect bottlenecks
+  // Detect bottlenecks using the analysis engine
+  const bottleneckReport = useMemo(() => {
+    const sampleData: SampleData[] = mockSamples.map(s => ({
+      id: s.id,
+      code: s.sampleNumber,
+      currentStage: s.currentStage,
+      targetDate: new Date(s.targetDate),
+      isDelayed: s.isDelayed,
+    }));
+    
+    return detectBottlenecks(sampleData, MOCK_OPERATORS, SAMPLING_STAGES);
+  }, []);
+
+  // Legacy bottleneck reference for backward compatibility
   const bottlenecks = useMemo(() => {
     return stageWorkloads.filter(s => s.isBottleneck);
   }, [stageWorkloads]);
@@ -247,6 +263,10 @@ const SamplingFloorDashboard = () => {
                 <TabsTrigger value="overview">Floor Overview</TabsTrigger>
                 <TabsTrigger value="operators">Operator Workload</TabsTrigger>
                 <TabsTrigger value="stages">Stage Management</TabsTrigger>
+                <TabsTrigger value="bottlenecks" className="flex items-center gap-1">
+                  <BarChart3 className="h-3 w-3" />
+                  Bottleneck Analysis
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="overview">
@@ -440,11 +460,24 @@ const SamplingFloorDashboard = () => {
                   </div>
                 )}
               </TabsContent>
+
+              <TabsContent value="bottlenecks">
+                <BottleneckAnalysisPanel 
+                  report={bottleneckReport}
+                  onSuggestionAction={(suggestion) => {
+                    console.log('Apply suggestion:', suggestion);
+                    // Future: implement suggestion application logic
+                  }}
+                />
+              </TabsContent>
             </Tabs>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Compact Bottleneck Panel */}
+            <BottleneckAnalysisPanel report={bottleneckReport} compact />
+
             {/* Urgent Items */}
             <Card>
               <CardHeader>
@@ -455,7 +488,7 @@ const SamplingFloorDashboard = () => {
                 <CardDescription>Samples past their target date</CardDescription>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[250px]">
+                <ScrollArea className="h-[200px]">
                   {urgentItems.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                       <CheckCircle2 className="h-8 w-8 mb-2 text-[hsl(var(--status-completed))]" />
