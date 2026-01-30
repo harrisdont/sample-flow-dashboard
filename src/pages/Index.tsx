@@ -80,7 +80,9 @@ const Index = () => {
 
   if (currentView === 'collection-detail' && selectedCollection) {
     return (
-      <div className="min-h-screen bg-background p-6">
+      <div className="min-h-screen bg-background">
+        <MainNav />
+        <div className="p-6">
         <Button variant="ghost" onClick={handleBack} className="mb-6 gap-2">
           ← Back to Dashboard
         </Button>
@@ -131,6 +133,7 @@ const Index = () => {
             </div>
           </div>
         </Card>
+        </div>
       </div>
     );
   }
