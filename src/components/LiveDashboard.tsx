@@ -1,9 +1,10 @@
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Scan, Clock, MapPin, AlertTriangle } from 'lucide-react';
+import { Scan, Clock, MapPin, AlertTriangle, Inbox } from 'lucide-react';
 import { Collection, WorkloadMetrics } from '@/types/sample';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface LiveDashboardProps {
   collections: Collection[];
@@ -50,49 +51,60 @@ export const LiveDashboard = ({ collections, metrics, onScanSample, onCollection
 
       <Card className="p-6">
         <h2 className="text-xl font-bold mb-4">Active Collections</h2>
-        <div className="space-y-3">
-          {collections.map((collection, index) => (
-            <div
-              key={index}
-              onClick={() => onCollectionClick(collection)}
-              className="p-4 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold text-lg">{collection.name}</h3>
-                    <Badge variant="outline">Slot {collection.slot}</Badge>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Badge 
-                        className={cn(
-                          collection.delay ? 'bg-[hsl(var(--status-delayed))]' : 'bg-[hsl(var(--status-in-progress))]',
-                          'text-background'
+        {collections.length === 0 ? (
+          <EmptyState
+            icon={Inbox}
+            title="No active collections"
+            description="There are no collections currently in progress. Start by scanning a sample or create a new collection."
+            actions={[
+              { label: 'Scan Sample', onClick: onScanSample }
+            ]}
+          />
+        ) : (
+          <div className="space-y-3">
+            {collections.map((collection, index) => (
+              <div
+                key={index}
+                onClick={() => onCollectionClick(collection)}
+                className="p-4 rounded-lg border bg-card hover:bg-accent transition-colors cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-lg">{collection.name}</h3>
+                      <Badge variant="outline">Slot {collection.slot}</Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          className={cn(
+                            collection.delay ? 'bg-[hsl(var(--status-delayed))]' : 'bg-[hsl(var(--status-in-progress))]',
+                            'text-background'
+                          )}
+                        >
+                          {collection.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        {collection.location}
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Clock className="h-4 w-4" />
+                        {collection.lastUpdate}
+                        {collection.delay && (
+                          <span className="text-[hsl(var(--status-delayed))] font-medium">
+                            ({collection.delay}min delay)
+                          </span>
                         )}
-                      >
-                        {collection.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="h-4 w-4" />
-                      {collection.location}
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      {collection.lastUpdate}
-                      {collection.delay && (
-                        <span className="text-[hsl(var(--status-delayed))] font-medium">
-                          ({collection.delay}min delay)
-                        </span>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );

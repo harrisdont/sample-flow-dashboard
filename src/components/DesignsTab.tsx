@@ -11,12 +11,14 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  Palette,
 } from 'lucide-react';
 import { useDesignStore, Design } from '@/data/designStore';
 import { useSilhouetteStore } from '@/data/silhouetteStore';
 import { useFabricStore } from '@/data/fabricStore';
 import { useCapsuleStore } from '@/data/capsuleCollectionData';
 import { NewDesignForm } from '@/components/NewDesignForm';
+import { EmptyState } from '@/components/ui/empty-state';
 import { format } from 'date-fns';
 
 const STATUS_CONFIG: Record<Design['status'], { label: string; icon: React.ReactNode; color: string }> = {
@@ -140,15 +142,24 @@ export const DesignsTab = () => {
       {/* Designs List */}
       {filteredDesigns.length === 0 ? (
         <Card>
-          <CardContent className="p-12 text-center">
-            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-muted-foreground mb-4">
-              {searchQuery ? 'No designs match your search' : 'No designs submitted yet'}
-            </p>
-            <Button onClick={() => setIsAddDesignOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Create First Design
-            </Button>
+          <CardContent className="p-0">
+            <EmptyState
+              icon={Palette}
+              title={searchQuery ? 'No matching designs' : 'No designs submitted yet'}
+              description={
+                searchQuery
+                  ? 'Try adjusting your search terms to find what you\'re looking for.'
+                  : 'Create your first design by combining a silhouette with fabric and color specifications.'
+              }
+              actions={
+                searchQuery
+                  ? [
+                      { label: 'Clear Search', onClick: () => setSearchQuery(''), variant: 'outline' },
+                      { label: 'New Design', onClick: () => setIsAddDesignOpen(true) },
+                    ]
+                  : [{ label: 'Create First Design', onClick: () => setIsAddDesignOpen(true) }]
+              }
+            />
           </CardContent>
         </Card>
       ) : (
