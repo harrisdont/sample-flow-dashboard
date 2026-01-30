@@ -11,10 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, LayoutGrid, Columns, Plus, Filter } from 'lucide-react';
+import { Search, LayoutGrid, Columns, Plus, Filter, Scissors } from 'lucide-react';
 import { useSilhouetteStore, SILHOUETTE_STATUS_CONFIG, SILHOUETTE_CATEGORY_LABELS, SilhouetteStatus, SilhouetteCategory } from '@/data/silhouetteStore';
 import { SilhouetteCard } from '@/components/SilhouetteCard';
 import { SilhouetteStatusBoard } from '@/components/SilhouetteStatusBoard';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface SilhouetteLibraryProps {
   onAddNew: () => void;
@@ -161,23 +162,35 @@ export const SilhouetteLibrary = ({ onAddNew }: SilhouetteLibraryProps) => {
 
       {/* Content */}
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredSilhouettes.length === 0 ? (
-            <Card className="col-span-full">
-              <CardContent className="p-12 text-center">
-                <p className="text-muted-foreground mb-4">No silhouettes found</p>
-                <Button onClick={onAddNew} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Add First Silhouette
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            filteredSilhouettes.map((silhouette) => (
+        filteredSilhouettes.length === 0 ? (
+          <Card>
+            <CardContent className="p-0">
+              <EmptyState
+                icon={Scissors}
+                title={searchQuery ? 'No matching silhouettes' : 'No silhouettes yet'}
+                description={
+                  searchQuery
+                    ? 'Try adjusting your search or filters to find what you\'re looking for.'
+                    : 'Start building your silhouette library by adding your first design.'
+                }
+                actions={
+                  searchQuery
+                    ? [
+                        { label: 'Clear Filters', onClick: () => { setSearchQuery(''); setCategoryFilter('all'); setStatusFilter('all'); }, variant: 'outline' },
+                        { label: 'Add Silhouette', onClick: onAddNew },
+                      ]
+                    : [{ label: 'Add First Silhouette', onClick: onAddNew }]
+                }
+              />
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredSilhouettes.map((silhouette) => (
               <SilhouetteCard key={silhouette.id} silhouette={silhouette} />
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )
       ) : (
         <SilhouetteStatusBoard silhouettes={filteredSilhouettes} />
       )}
