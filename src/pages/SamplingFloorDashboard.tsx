@@ -13,6 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { SampleStageCard } from '@/components/sampling/SampleStageCard';
 import { 
   Scissors, 
   Users, 
@@ -26,24 +27,42 @@ import {
   Layers,
   Target,
   BarChart3,
+  ArrowRight,
 } from 'lucide-react';
 import { format, differenceInDays, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { ProcessStage } from '@/types/sample';
 import { detectBottlenecks, StageConfig, OperatorData, SampleData } from '@/lib/bottleneckDetector';
 import { BottleneckAnalysisPanel } from '@/components/sampling/BottleneckAnalysisPanel';
+import { isDecorationStage, DECORATION_STAGE_LABELS, getNextStage } from '@/lib/embroideryWorkflow';
 
-// Sampling stages with operator types and parallelization options
-const SAMPLING_STAGES: StageConfig[] = [
+// Production stages
+const PRODUCTION_STAGES: StageConfig[] = [
   { id: 'pattern', label: 'Pattern Making', operatorType: 'Pattern Maker' },
   { id: 'semi-stitching', label: 'Semi Stitching', operatorType: 'Stitcher', dependsOn: ['pattern'] },
   { id: 'complete-stitching', label: 'Complete Stitching', operatorType: 'Master Tailor', dependsOn: ['semi-stitching'] },
-  { id: 'multihead', label: 'Multihead', operatorType: 'Machine Operator', canParallelize: ['pakki'] },
   { id: 'pakki', label: 'Pakki', operatorType: 'Pakki Operator', canParallelize: ['multihead', 'ari-dori'] },
   { id: 'ari-dori', label: 'Ari/Dori', operatorType: 'Ari/Dori Operator', canParallelize: ['pakki', 'cottage-work'] },
   { id: 'cottage-work', label: 'Cottage Work', operatorType: 'Cottage Worker', canParallelize: ['ari-dori'] },
   { id: 'hand-finishes', label: 'Hand Finishes', operatorType: 'Finisher', dependsOn: ['cottage-work'] },
 ];
+
+// Decoration stages
+const DECORATION_STAGES: StageConfig[] = [
+  { id: 'motif-assignment', label: 'Motif Assignment', operatorType: 'Motif Developer' },
+  { id: 'motif-in-progress', label: 'Motif In Progress', operatorType: 'Motif Developer', dependsOn: ['motif-assignment'] },
+  { id: 'motif-review', label: 'Motif Review', operatorType: 'Designer', dependsOn: ['motif-in-progress'] },
+  { id: 'multihead-punching', label: 'Multihead Punching', operatorType: 'Punching Operator', dependsOn: ['motif-review'] },
+  { id: 'multihead', label: 'Multihead', operatorType: 'Machine Operator', dependsOn: ['multihead-punching'] },
+  { id: 'pinning', label: 'Pinning', operatorType: 'Sampling Incharge', dependsOn: ['motif-review'] },
+  { id: 'stencil-transfer', label: 'Stencil Transfer', operatorType: 'Sampling Incharge', dependsOn: ['pinning'] },
+  { id: 'hand-embroidery', label: 'Hand Embroidery', operatorType: 'Embroidery Technician', dependsOn: ['stencil-transfer'] },
+  { id: 'screen-print-execution', label: 'Screen Print Exec', operatorType: 'Screen Printer', dependsOn: ['motif-review'] },
+  { id: 'hand-block-printing', label: 'Hand Block Print', operatorType: 'Block Print Coordinator', dependsOn: ['motif-review'] },
+  { id: 'decoration-approval', label: 'Decoration Approval', operatorType: 'Designer' },
+];
+
+const SAMPLING_STAGES: StageConfig[] = [...PRODUCTION_STAGES, ...DECORATION_STAGES];
 
 // Mock operators for each stage with cross-training capabilities
 const MOCK_OPERATORS: OperatorData[] = [
@@ -58,6 +77,14 @@ const MOCK_OPERATORS: OperatorData[] = [
   { id: 'op-9', name: 'Kamran Yousuf', skill: 'hand-finishes', capacity: 6, crossTrainedSkills: ['cottage-work'] },
   { id: 'op-10', name: 'Asif Raza', skill: 'semi-stitching', capacity: 6 },
   { id: 'op-11', name: 'Bilal Hussain', skill: 'pakki', capacity: 5 },
+  // Decoration operators
+  { id: 'op-12', name: 'Usman Qureshi', skill: 'motif-assignment', capacity: 6 },
+  { id: 'op-13', name: 'Ali Haider', skill: 'motif-in-progress', capacity: 4 },
+  { id: 'op-14', name: 'Zubair Khan', skill: 'multihead-punching', capacity: 5 },
+  { id: 'op-15', name: 'Hamza Riaz', skill: 'screen-print-execution', capacity: 6 },
+  { id: 'op-16', name: 'Shahbaz Gill', skill: 'hand-block-printing', capacity: 3 },
+  { id: 'op-17', name: 'Danish Malik', skill: 'hand-embroidery', capacity: 4 },
+  { id: 'op-18', name: 'Faizan Ahmed', skill: 'pinning', capacity: 8 },
 ];
 
 const SamplingFloorDashboard = () => {
@@ -270,8 +297,10 @@ const SamplingFloorDashboard = () => {
               </TabsList>
 
               <TabsContent value="overview">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {stageWorkloads.map(({ stage, queueSize, operatorCount, utilization, isBottleneck, estimatedClearTime }) => (
+                {/* Production Stages */}
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3">Production Stages</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  {stageWorkloads.filter(sw => !isDecorationStage(sw.stage.id)).map(({ stage, queueSize, operatorCount, utilization, isBottleneck, estimatedClearTime }) => (
                     <Card 
                       key={stage.id}
                       className={cn(
@@ -302,10 +331,7 @@ const SamplingFloorDashboard = () => {
                           </div>
                           <Progress 
                             value={utilization} 
-                            className={cn(
-                              'h-2',
-                              isBottleneck && '[&>div]:bg-destructive'
-                            )}
+                            className={cn('h-2', isBottleneck && '[&>div]:bg-destructive')}
                           />
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <span>{operatorCount} operators</span>
@@ -320,6 +346,65 @@ const SamplingFloorDashboard = () => {
                       </CardContent>
                     </Card>
                   ))}
+                </div>
+
+                {/* Decoration Stages */}
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3">Decoration Processes</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {stageWorkloads.filter(sw => isDecorationStage(sw.stage.id)).map(({ stage, queueSize, operatorCount, utilization, isBottleneck, estimatedClearTime, samples }) => {
+                    // Calculate deadline pressure
+                    const overdueSamples = samples.filter(s => new Date(s.stageDeadline) < new Date());
+                    
+                    return (
+                      <Card 
+                        key={stage.id}
+                        className={cn(
+                          'cursor-pointer transition-colors hover:border-primary',
+                          isBottleneck && 'border-destructive',
+                          overdueSamples.length > 0 && !isBottleneck && 'border-[hsl(var(--status-delayed))]'
+                        )}
+                        onClick={() => {
+                          setSelectedStage(stage.id);
+                          setActiveTab('stages');
+                        }}
+                      >
+                        <CardHeader className="pb-2">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm font-medium">{stage.label}</CardTitle>
+                            <div className="flex gap-1">
+                              {overdueSamples.length > 0 && (
+                                <Badge variant="destructive" className="text-xs">
+                                  {overdueSamples.length} late
+                                </Badge>
+                              )}
+                              {isBottleneck && (
+                                <Badge variant="destructive" className="text-xs">
+                                  <Zap className="h-3 w-3 mr-1" />
+                                  Bottleneck
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Queue</span>
+                              <span className="font-medium">{queueSize} samples</span>
+                            </div>
+                            <Progress 
+                              value={utilization} 
+                              className={cn('h-2', isBottleneck && '[&>div]:bg-destructive')}
+                            />
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>{operatorCount} operators</span>
+                              <span>{utilization}% capacity</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </TabsContent>
 
@@ -386,17 +471,34 @@ const SamplingFloorDashboard = () => {
               </TabsContent>
 
               <TabsContent value="stages" className="space-y-4">
-                <div className="flex gap-2 flex-wrap mb-4">
-                  {SAMPLING_STAGES.map(stage => (
-                    <Button
-                      key={stage.id}
-                      variant={selectedStage === stage.id ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSelectedStage(stage.id)}
-                    >
-                      {stage.label}
-                    </Button>
-                  ))}
+                {/* Stage filter buttons - grouped */}
+                <div className="space-y-2 mb-4">
+                  <p className="text-xs text-muted-foreground font-medium">Production</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {PRODUCTION_STAGES.map(stage => (
+                      <Button
+                        key={stage.id}
+                        variant={selectedStage === stage.id ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedStage(stage.id)}
+                      >
+                        {stage.label}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground font-medium mt-2">Decoration</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {DECORATION_STAGES.map(stage => (
+                      <Button
+                        key={stage.id}
+                        variant={selectedStage === stage.id ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedStage(stage.id)}
+                      >
+                        {stage.label}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
 
                 {selectedStage && (
@@ -419,37 +521,26 @@ const SamplingFloorDashboard = () => {
                         ) : (
                           <div className="space-y-3">
                             {samplesByStage[selectedStage]?.map(sample => {
-                              const daysUntil = differenceInDays(new Date(sample.targetDate), new Date());
+                              const nextStage = sample.decorationTechnique 
+                                ? getNextStage(sample.decorationTechnique, sample.currentStage) 
+                                : null;
                               
                               return (
-                                <div 
-                                  key={sample.id}
-                                  className={cn(
-                                    'p-3 rounded-lg border',
-                                    sample.isDelayed && 'border-destructive bg-destructive/5'
+                                <div key={sample.id} className="space-y-2">
+                                  <SampleStageCard sample={sample} />
+                                  {nextStage && (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="w-full gap-2"
+                                      onClick={() => {
+                                        console.log(`Advance ${sample.sampleNumber} to ${nextStage}`);
+                                      }}
+                                    >
+                                      <ArrowRight className="h-3 w-3" />
+                                      Advance to {SAMPLING_STAGES.find(s => s.id === nextStage)?.label || nextStage}
+                                    </Button>
                                   )}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <p className="font-medium">{sample.sampleNumber}</p>
-                                      <p className="text-sm text-muted-foreground">
-                                        {sample.silhouetteName} • {sample.collectionName}
-                                      </p>
-                                    </div>
-                                    <div className="text-right">
-                                      <Badge 
-                                        variant="outline"
-                                        className={cn(
-                                          daysUntil < 0 && 'border-destructive text-destructive',
-                                          daysUntil >= 0 && daysUntil <= 2 && 'border-[hsl(var(--status-delayed))] text-[hsl(var(--status-delayed))]'
-                                        )}
-                                      >
-                                        {daysUntil < 0 
-                                          ? `${Math.abs(daysUntil)}d overdue`
-                                          : `${daysUntil}d`}
-                                      </Badge>
-                                    </div>
-                                  </div>
                                 </div>
                               );
                             })}
@@ -488,7 +579,7 @@ const SamplingFloorDashboard = () => {
                 <CardDescription>Samples past their target date</CardDescription>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[200px]">
+                <ScrollArea className="h-[250px]">
                   {urgentItems.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                       <CheckCircle2 className="h-8 w-8 mb-2 text-[hsl(var(--status-completed))]" />
@@ -497,18 +588,7 @@ const SamplingFloorDashboard = () => {
                   ) : (
                     <div className="space-y-3">
                       {urgentItems.map(sample => (
-                        <div 
-                          key={sample.id}
-                          className="p-3 rounded-lg border border-destructive bg-destructive/5"
-                        >
-                          <p className="font-medium text-sm">{sample.sampleNumber}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {sample.silhouetteName}
-                          </p>
-                          <p className="text-xs text-destructive mt-1">
-                            {Math.abs(differenceInDays(new Date(sample.targetDate), new Date()))}d overdue
-                          </p>
-                        </div>
+                        <SampleStageCard key={sample.id} sample={sample} compact />
                       ))}
                     </div>
                   )}

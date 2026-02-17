@@ -6,6 +6,7 @@ import { useCurrentUser } from '@/contexts/UserContext';
 import { useTaskStore } from '@/data/taskStore';
 import { useDesignStore } from '@/data/designStore';
 import { useCapsuleStore, CapsuleCollection } from '@/data/capsuleCollectionData';
+import { mockSamples } from '@/data/mockData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -33,6 +34,9 @@ import { format, differenceInDays, isToday, isTomorrow } from 'date-fns';
 import { STATUS_CONFIG, PRIORITY_CONFIG } from '@/types/task';
 import { MOCK_USERS } from '@/contexts/UserContext';
 import { cn } from '@/lib/utils';
+import { isDecorationStage, getTechniqueLabel } from '@/lib/embroideryWorkflow';
+import { SampleStageCard } from '@/components/sampling/SampleStageCard';
+import { EmbroideryTechnique } from '@/types/sample';
 
 const DesignHub = () => {
   const { currentUser, getUsersByLine } = useCurrentUser();
@@ -269,6 +273,35 @@ const DesignHub = () => {
                                 </Badge>
                               ))}
                             </div>
+
+                            {/* Samples in Decoration */}
+                            {(() => {
+                              const decorationSamples = mockSamples.filter(
+                                s => s.collectionName === collection.collectionName && isDecorationStage(s.currentStage)
+                              );
+                              if (decorationSamples.length === 0) return null;
+                              
+                              const byTechnique = decorationSamples.reduce((acc, s) => {
+                                const tech = s.decorationTechnique || 'other';
+                                acc[tech] = (acc[tech] || 0) + 1;
+                                return acc;
+                              }, {} as Record<string, number>);
+
+                              return (
+                                <div className="mt-3 p-3 rounded-lg bg-muted/50">
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                                    Samples in Decoration ({decorationSamples.length})
+                                  </p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {Object.entries(byTechnique).map(([tech, count]) => (
+                                      <Badge key={tech} variant="outline" className="text-xs">
+                                        {getTechniqueLabel(tech as EmbroideryTechnique)}: {count}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </CardContent>
                       </Card>

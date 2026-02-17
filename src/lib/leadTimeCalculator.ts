@@ -10,6 +10,20 @@ const stageToLeadTimeKey: Partial<Record<ProcessStage, keyof LeadTimeSettings>> 
   'hand-finishes': 'finishing',
 };
 
+// Decoration sub-stage durations (in days)
+const DECORATION_STAGE_DURATIONS: Partial<Record<ProcessStage, number>> = {
+  'motif-assignment': 1,
+  'motif-in-progress': 3,
+  'motif-review': 1,
+  'multihead-punching': 2,
+  'pinning': 1,
+  'stencil-transfer': 1,
+  'hand-embroidery': 5,
+  'screen-print-execution': 2,
+  'hand-block-printing': 7,
+  'decoration-approval': 1,
+};
+
 // Default duration for stages not in lead times (in days)
 const DEFAULT_STAGE_DURATION = 2;
 
@@ -18,6 +32,10 @@ export const getStageDuration = (
   stage: ProcessStage,
   settings: LeadTimeSettings = DEFAULT_LEAD_TIMES
 ): number => {
+  // Check decoration sub-stage durations first
+  const decorationDuration = DECORATION_STAGE_DURATIONS[stage];
+  if (decorationDuration !== undefined) return decorationDuration;
+  
   const key = stageToLeadTimeKey[stage];
   if (key) {
     return settings[key];
@@ -113,4 +131,27 @@ export const calculateTotalProductionTime = (
 ): number => {
   return settings.cutting + settings.embroidery + settings.stitching + 
          settings.finishing + settings.qc + settings.dispatch + settings.multihead;
+};
+
+// Calculate stage deadline by backwards-scheduling from collection submission date
+export const calculateStageDeadline = (
+  collectionSubmissionDate: Date | string,
+  targetStage: ProcessStage,
+  routingPath: ProcessStage[],
+  settings: LeadTimeSettings = DEFAULT_LEAD_TIMES
+): Date => {
+  const submission = typeof collectionSubmissionDate === 'string' 
+    ? new Date(collectionSubmissionDate) 
+    : collectionSubmissionDate;
+  
+  const targetIndex = routingPath.indexOf(targetStage);
+  if (targetIndex === -1) return submission;
+  
+  // Sum durations of all stages AFTER the target stage
+  let daysAfter = 0;
+  for (let i = targetIndex + 1; i < routingPath.length; i++) {
+    daysAfter += getStageDuration(routingPath[i], settings);
+  }
+  
+  return addDays(submission, -daysAfter);
 };
