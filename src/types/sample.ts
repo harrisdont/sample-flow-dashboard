@@ -14,7 +14,19 @@ export type ProcessStage =
   | 'adda'
   | 'cottage-work'
   | 'hand-finishes'
-  | 'approval';
+  | 'approval'
+  | 'motif-assignment'
+  | 'motif-in-progress'
+  | 'motif-review'
+  | 'multihead-punching'
+  | 'pinning'
+  | 'stencil-transfer'
+  | 'hand-embroidery'
+  | 'screen-print-execution'
+  | 'hand-block-printing'
+  | 'decoration-approval';
+
+export type EmbroideryTechnique = 'multihead' | 'hand-embroidery' | 'screen-print' | 'hand-block-print';
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'redo';
 
@@ -42,9 +54,13 @@ export interface Sample {
   approvalStatus: ApprovalStatus;
   approvedBy?: string;
   isDelayed?: boolean;
+  stageEntryDate: string;
+  stageDeadline: string;
+  decorationTechnique?: EmbroideryTechnique;
   processes: {
     stage: ProcessStage;
     targetDate: string;
+    entryDate?: string;
     approvalStatus: ApprovalStatus;
     approvedBy?: string;
   }[];
