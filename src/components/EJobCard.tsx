@@ -33,8 +33,8 @@ const lineColors: Record<string, string> = {
 interface EJobCardProps {
   sample: Sample;
   onBack: () => void;
-  onApprove: () => void;
-  onReject: () => void;
+  onApprove?: () => void;
+  onReject?: () => void;
 }
 
 const STAGE_LABELS: Record<ProcessStage, string> = {
