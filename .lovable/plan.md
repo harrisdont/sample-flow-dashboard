@@ -1,168 +1,94 @@
 
-# Beta Test Report: End-to-End Product Journey Audit
 
-## Executive Summary
+# Dashboard Efficiency Upgrade
 
-After a thorough review of the entire codebase, here is where each step of the product journey stands and what needs to be fixed to create a fully connected, trackable pipeline.
+## What Changes
 
----
+The Dashboard (landing page at `/`) currently displays hardcoded mock data that is disconnected from all other modules. This plan rewires it to read live data from the existing Zustand stores, computes KPIs dynamically, and replaces the stub "Scan Sample" button with a sample search/lookup.
 
-## Journey Step 1: Planning (Seasonal Collection Planning)
+## 1. Wire KPI Cards to Live Store Data
 
-**Status: Partially Connected**
+Replace the static `mockMetrics` object with computed values derived from `useSampleStore` and `useCapsuleStore`:
 
-- **Working:** Category planner can set total design count, allocate by launch, distribute by line, and set category breakdowns (1pc/2pc/3pc) with MOQs per category per line.
-- **Working:** Capsule Collection Plan Form creates collections in the capsule store, which the Design Hub reads.
-- **Gap:** Planning allocations (line-level design counts, launch percentages) are local state only -- they do NOT write to the capsule store or any shared state. The line-level design targets exist only on the Planning page and are lost on navigation. They need to persist so downstream modules can reference how many designs each line was allocated.
+- **Total Samples**: `useSampleStore.samples.length`
+- **Due Today**: Count samples where `stageDeadline === today`
+- **Overdue**: Count samples where `stageDeadline < today` and `approvalStatus === 'pending'`
+- **Bottleneck Alert**: Run `detectBottlenecks()` from the existing bottleneck engine against the live sample data to surface the most critical alert dynamically
 
----
+## 2. Wire Active Collections to Live Capsule Store
 
-## Journey Step 2: Collection Plans in Design Hub
+Replace the static `mockCollections` array. For each capsule collection from `useCapsuleStore`:
 
-**Status: Working but Limited**
+- Compute `totalSamples` and `samplesCompleted` by querying `useSampleStore.getSamplesByCollection(collectionName)`
+- Derive `status` from the furthest-along sample's current stage
+- Derive `delay` by checking if any sample in the collection is overdue
+- Derive `lastUpdate` from the most recent `stageEntryDate` across all samples in that collection
+- Derive `location` from the current stage of the most recently updated sample
 
-- **Working:** Design Hub reads capsule store and shows "My Collections" filtered by the current user's assigned lines. Shows design progress (submitted vs. planned) with category breakdowns.
-- **Working:** "New Design" button opens the multi-step wizard linked to actual collections.
-- **Gap:** Collections tab is read-only -- team leads cannot assign a collection or individual design tasks to a specific designer from this view. The task system exists (useTaskStore) but there is no UI to create/assign tasks from the collection cards.
+This means the Active Collections list reflects actual sample pipeline state, not static display data.
 
----
+## 3. Replace "Scan Sample" with Sample Search
 
-## Journey Step 3: Sourcing Receives Fabric Orders
+Remove the stub that always loads `mockSamples[0]`. Replace with:
 
-**Status: Partially Connected**
+- A search input (sample number or designer name) that filters `useSampleStore.samples`
+- Clicking a result opens its EJob Card with the store-connected approve/reject/advance actions
+- Keep the "Scan Sample" button but wire it to open the search dialog instead of hardcoding a sample
 
-- **Working:** When a capsule collection is saved, pending-induction fabric entries are auto-generated in the fabric store for each required component.
-- **Working:** Sourcing Dashboard shows fabric pipeline, treatment tracking, and procurement queue.
-- **Gap:** The "Review" button in the procurement queue is a stub (no onClick handler). Sourcing cannot action fabric requests.
-- **Gap:** Fabric status transitions (advancing from pending to in-treatment to inducted) require manually opening the Fabric Induction form -- there is no quick-action button on the Sourcing dashboard to advance status.
+## 4. Wire Collection Detail View to Live Data
 
----
+The collection-detail view currently reads from the static `Collection` type. Update it to:
 
-## Journey Step 4: Departmental Workload Alignment
+- Read from the capsule store for collection metadata (name, target date)
+- Query sample store for all samples in that collection
+- Show a list of samples with their current stage, entry date, and deadline (reusing the existing `SampleStageCard` component)
+- Allow clicking any sample to open its EJob Card
 
-**Status: Partially Working**
+## 5. Wire EJob Card Launch to Store
 
-- **Working:** Director Dashboard shows department health (design/sourcing/sampling workload counts) and collection status overview with RAG indicators.
-- **Working:** Collections Summary View shows all collections with backwards-calculated milestones, fabric/sampling/production deadlines.
-- **Gap:** Director Dashboard collection cards are not clickable -- they don't drill down to a detailed view.
-- **Gap:** Predictive workload forecasting (what department gets what workload in what time period) does not exist. Only current-state counts are shown.
-
----
-
-## Journey Step 5: Design Creation Flow in Design Hub
-
-**Status: Mostly Working**
-
-- **Working:** 4-step wizard: (1) Select collection + category, (2) Configure components with silhouettes + fabrics, (3) Trims/closures/lining, (4) Techpack canvas + PDF export.
-- **Working:** Silhouette selection from approved silhouettes, with inline cost calculation (fabric cost + stitching = aggregate, then 3.2x markup for predicted selling price).
-- **Working:** Fabric selection filters to only inducted fabrics for the selected collection.
-- **Working:** Neckline, sleeve, and seam finish customization dropdowns exist in the form.
-- **Gap:** Silhouette and Fabric induction are separate top-level nav items (/sampling for silhouettes, /fabric-induction for fabrics). Per the user's request, these should be accessible from within the Design Hub, not as separate navigation destinations.
-- **Gap:** Auto-applied default seam finishes based on line (formals = front seams, others = overlocked) are NOT implemented -- the seam finish is always a manual selection with no defaults.
-- **Gap:** Size spec sheet generation after silhouette approval is not implemented.
-- **Gap:** The "fabric inbox" concept (showing which fabrics are in-house, which are pending) does not exist in the Design Hub. Designers see only inducted fabrics in the design form dropdown but have no visibility into pending or in-transit fabrics.
-- **Gap:** Embroidery/decoration technique assignment during design creation exists (process checkboxes) but does NOT connect to the decoration workflow engine (embroideryWorkflow.ts). Selecting "multihead" in the design form doesn't create a decoration task or route the sample through the motif workflow.
-
----
-
-## Journey Step 6: Sample Tracking Through Production
-
-**Status: Mostly Working (with mock data)**
-
-- **Working:** Heat Map (SamplingBoard) shows samples across production + decoration stages with entry dates, stage deadlines, and days remaining.
-- **Working:** EJob Card shows full process timeline with entry dates, current stage deadline, and decoration technique badge.
-- **Working:** Sampling Floor Dashboard has Floor Overview (production + decoration stage cards), Stage Management with SampleStageCard components, and "Advance Stage" buttons.
-- **Gap:** All sample data is hardcoded mock data. Designs created via the NewDesignForm do NOT generate Sample records. There is no bridge between a submitted design and a tracked sample in the production pipeline.
-- **Gap:** The "Advance Stage" button logs to console but doesn't actually update the sample's stage (mockSamples is a static array, not a Zustand store).
-
----
-
-## Journey Step 7: Designer Review and Approval
-
-**Status: Partially Working**
-
-- **Working:** EJob Card has Approve/Reject buttons that trigger toast notifications.
-- **Gap:** Approve/Reject actions do NOT update any store -- the sample status remains unchanged after clicking.
-- **Gap:** "Ready for Review" panel with costing sheet does not exist. The costing calculation exists in the NewDesignForm but is not carried forward to a review stage.
-- **Gap:** No "modification request" flow -- only approve or reject, no "redo with changes."
-
----
-
-## Journey Step 8: Production Hub
-
-**Status: Not Implemented**
-
-- There is no dedicated Production Hub. The Sampling Floor tracks samples through sampling stages only. Once a sample is approved, there is no view showing production-level tracking (cutting, bulk embroidery, finishing, QC, dispatch).
-
----
-
-## Journey Step 9: Efficiency & Predictive Analytics
-
-**Status: Not Implemented**
-
-- No efficiency ratio summary exists.
-- No predictive analysis for on-time vs. delayed collections.
-- No self-learning from delays or suggested solutions.
-- Bottleneck detection exists but only for current-state capacity analysis.
-
----
-
-## Critical Navigation Issues
-
-Per the user's request, Silhouette induction and Fabric induction should be accessible from within the Design Hub, not as separate top-level nav items. Currently:
-- `/sampling` (labeled "Silhouettes") is a separate page
-- `/fabric-induction` (labeled "Fabrics") is a separate page
-
-These need to be embedded as tabs or sub-sections within the Design Hub.
-
----
-
-## Recommended Fix Priority (Implementation Plan)
-
-### Phase 1: Connect the Data Pipeline (Critical)
-1. **Create a Sample store** (Zustand) so samples are mutable and can be created from designs, advanced through stages, and approved/rejected with persistent state changes.
-2. **Bridge Design to Sample**: When a design is submitted, auto-generate a Sample record with the correct routing path based on selected processes/decoration technique.
-3. **Wire Approve/Reject**: Make EJob Card approve/reject actually update the sample store.
-4. **Wire Stage Advancement**: Make the "Advance Stage" button in Sampling Floor actually update the sample's current stage.
-
-### Phase 2: Consolidate Navigation
-5. **Move Silhouette Library and Fabric Induction into Design Hub** as additional tabs, removing them from the main nav bar.
-6. **Add a Fabric Inbox** to the Design Hub showing fabric status (in-house / pending / in-transit) per collection.
-
-### Phase 3: Complete Missing Workflows
-7. **Wire the Sourcing "Review" button** to open the fabric induction form for that specific fabric.
-8. **Add default seam finish logic** based on line (formals = front seams, others = overlocked).
-9. **Add "Ready for Review" panel** with the costing sheet pulled from the design's cost calculation.
-10. **Add task creation UI** in Design Hub to assign designs/collections to team members.
-
-### Phase 4: Production & Analytics
-11. **Create Production Hub** page for post-approval tracking through cutting, embroidery, finishing, QC, dispatch.
-12. **Add efficiency reporting** -- sampling-to-production conversion ratios, on-time rates.
-13. **Add predictive analysis** -- flag at-risk collections based on current pipeline velocity vs. deadlines.
-
-### Phase 5: Polish
-14. **Persist planning allocations** to the store so they are available downstream.
-15. **Make Director Dashboard collection cards clickable** with drill-down navigation.
-16. **Add in-app tutorial** for first-time users.
-
----
+The Dashboard currently has local `handleApprove`/`handleReject` that only fire toasts. Remove these and pass the sample's `id` to `EJobCard`, which already uses `useSampleStore` internally for approve/reject/redo actions.
 
 ## Technical Details
 
-### New Files Required
-- `src/data/sampleStore.ts` -- Zustand store for mutable sample records
-- `src/pages/ProductionHub.tsx` -- Production tracking page
-- `src/components/FabricInbox.tsx` -- Fabric status inbox for designers
-- `src/components/ReadyForReview.tsx` -- Review panel with costing
+### Files Modified
 
-### Files to Modify
-- `src/components/MainNav.tsx` -- Remove Silhouettes and Fabrics from top nav
-- `src/pages/DesignHub.tsx` -- Add Silhouettes, Fabrics, and Fabric Inbox tabs
-- `src/components/NewDesignForm.tsx` -- Connect design submission to sample store, add default seam finish logic
-- `src/components/EJobCard.tsx` -- Wire approve/reject to sample store
-- `src/pages/SamplingFloorDashboard.tsx` -- Wire "Advance Stage" to sample store
-- `src/pages/SourcingDashboard.tsx` -- Wire "Review" button
-- `src/pages/DirectorDashboard.tsx` -- Make collection cards clickable
-- `src/App.tsx` -- Add ProductionHub route, remove standalone silhouette/fabric routes
+1. **`src/pages/Index.tsx`** -- Remove all imports of `mockCollections`, `mockSamples`, `mockMetrics`. Import `useSampleStore`, `useCapsuleStore`, `detectBottlenecks`. Compute metrics inline. Add sample search dialog. Rewire collection-detail to use capsule + sample stores. Remove local approve/reject handlers (EJobCard handles this internally).
 
-This is a large scope. I recommend implementing it in phases, starting with Phase 1 (connecting the data pipeline) as it is the foundation everything else depends on.
+2. **`src/components/LiveDashboard.tsx`** -- No interface changes needed; it already accepts `collections`, `metrics`, and callbacks as props. The parent (`Index.tsx`) will pass computed data instead of mocks.
+
+3. **`src/data/mockData.ts`** -- Keep the file (sampleStore still seeds from `mockSamples`), but `Index.tsx` will no longer import `mockCollections` or `mockMetrics`.
+
+### Computed Metrics Logic (in Index.tsx)
+
+```text
+const samples = useSampleStore(state => state.samples);
+const capsules = useCapsuleStore(state => state.capsules);
+const today = format(new Date(), 'yyyy-MM-dd');
+
+const metrics = {
+  totalSamples: samples.length,
+  dueToday: samples.filter(s => s.stageDeadline === today).length,
+  overdue: samples.filter(s => s.stageDeadline < today && s.approvalStatus === 'pending').length,
+  bottleneckAlert: detectBottlenecks(...).bottlenecks[0]?.stageName || 'No bottlenecks'
+};
+
+const collections = Object.values(capsules).map(capsule => {
+  const collSamples = samples.filter(s => s.collectionName === capsule.collectionName);
+  return {
+    name: capsule.collectionName,
+    slot: capsule.lineId,
+    totalSamples: collSamples.length,
+    samplesCompleted: collSamples.filter(s => s.approvalStatus === 'approved').length,
+    // ... derived status, delay, location, lastUpdate
+  };
+});
+```
+
+### Sample Search Component
+
+A simple `CommandDialog` (already available via the installed `cmdk` package) that:
+- Opens on button click or Ctrl+K
+- Searches samples by number, designer name, or collection name
+- Shows matching results with current stage badge
+- Clicking a result navigates to the EJob Card view
+
