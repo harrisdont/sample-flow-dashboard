@@ -16,6 +16,11 @@ import { Badge } from '@/components/ui/badge';
 import { LayoutGrid, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { useCurrentUser } from '@/contexts/UserContext';
+import { DirectorDashboardPanel } from '@/components/dashboard/DirectorDashboardPanel';
+import { DesignLeadDashboardPanel } from '@/components/dashboard/DesignLeadDashboardPanel';
+import { SamplingDashboardPanel } from '@/components/dashboard/SamplingDashboardPanel';
+import { ROLE_CONFIG } from '@/types/user';
 import {
   CommandDialog,
   CommandInput,
@@ -59,6 +64,8 @@ const Index = () => {
 
   const samples = useSampleStore(state => state.samples);
   const capsules = useCapsuleStore(state => state.capsules);
+  const { currentUser } = useCurrentUser();
+  const userRole = currentUser?.role || 'director';
 
   // Ctrl+K to open search
   useEffect(() => {
@@ -273,12 +280,66 @@ const Index = () => {
       </CommandDialog>
 
       {currentView === 'dashboard' && (
-        <LiveDashboard
-          collections={collections}
-          metrics={metrics}
-          onScanSample={handleScanSample}
-          onCollectionClick={handleCollectionClick}
-        />
+        <div className="p-6 space-y-6">
+          <header className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">
+                {userRole === 'director' || userRole === 'category-manager'
+                  ? 'Executive Dashboard'
+                  : userRole === 'design-lead' || userRole === 'design-coordinator'
+                  ? 'Design Pipeline'
+                  : userRole === 'sampling-incharge'
+                  ? 'Sampling Floor Dashboard'
+                  : 'Live Dashboard'}
+              </h1>
+              <p className="text-muted-foreground">
+                {currentUser ? `${ROLE_CONFIG[currentUser.role].label} · ${currentUser.name}` : 'Real-time production status'}
+              </p>
+            </div>
+            <Button onClick={handleScanSample} size="lg" className="gap-2">
+              <Search className="h-5 w-5" />
+              Scan Sample
+            </Button>
+          </header>
+
+          {(userRole === 'director' || userRole === 'category-manager') && (
+            <DirectorDashboardPanel
+              collections={collections}
+              metrics={metrics}
+              samples={samples}
+              capsules={capsules}
+              onCollectionClick={handleCollectionClick}
+            />
+          )}
+
+          {(userRole === 'design-lead' || userRole === 'design-coordinator') && currentUser && (
+            <DesignLeadDashboardPanel
+              currentUser={currentUser}
+              samples={samples}
+              collections={collections}
+              metrics={metrics}
+              onSampleClick={handleSampleClick}
+              onCollectionClick={handleCollectionClick}
+            />
+          )}
+
+          {userRole === 'sampling-incharge' && (
+            <SamplingDashboardPanel
+              samples={samples}
+              metrics={metrics}
+              onSampleClick={handleSampleClick}
+            />
+          )}
+
+          {userRole === 'sourcing-manager' && (
+            <LiveDashboard
+              collections={collections}
+              metrics={metrics}
+              onScanSample={handleScanSample}
+              onCollectionClick={handleCollectionClick}
+            />
+          )}
+        </div>
       )}
 
       {currentView === 'board' && (
