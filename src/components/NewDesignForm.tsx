@@ -45,6 +45,9 @@ import { toast } from 'sonner';
 import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle, CheckCircle2, IndianRupee, Calculator, Palette, PenTool } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { useSampleStore, createSampleFromDesign } from '@/data/sampleStore';
+import { useCurrentUser } from '@/contexts/UserContext';
+import { Line, EmbroideryTechnique } from '@/types/sample';
 
 type DesignCategory = 'onePiece' | 'twoPiece' | 'threePiece' | 'dupattas' | 'lowers' | 'lehenga-set' | 'saree-set';
 
@@ -93,6 +96,8 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const { addDesign, getDesignCountByCategory } = useDesignStore();
   const { getFabricsByCollection, getFabricById } = useFabricStore();
   const { getApprovedSilhouettes, calculateSilhouetteCost, getSilhouetteById } = useSilhouetteStore();
+  const { addSample } = useSampleStore();
+  const { currentUser } = useCurrentUser();
   
   const [step, setStep] = useState<Step>(1);
   const [selectedCollection, setSelectedCollection] = useState('');
@@ -503,9 +508,54 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
 
     const capsule = capsules[selectedCollection];
     const categoryLabel = CATEGORY_LABELS[selectedCategory as DesignCategory];
-    
+
+    // Auto-generate a Sample record for tracking
+    const primaryFabric = collectionFabrics.find(f => f.id === shirtConfig.inductedFabricId) || collectionFabrics[0];
+    const primarySil = getSilhouetteById(shirtConfig.silhouetteId || lowersConfig.silhouetteId || dupattaConfig.silhouetteId);
+
+    // Map category to combination type
+    const categoryToCombination: Record<string, '1pc' | '2pc' | '3pc' | '4pc'> = {
+      onePiece: '1pc', twoPiece: '2pc', threePiece: '3pc', dupattas: '1pc', lowers: '1pc',
+      'lehenga-set': '3pc', 'saree-set': '2pc',
+    };
+
+    // Map process IDs to decoration technique
+    const processToTechnique: Record<string, EmbroideryTechnique> = {
+      'multihead': 'multihead',
+      'block-print': 'hand-block-print',
+      'screen-print': 'screen-print',
+    };
+    let decorationTechnique: EmbroideryTechnique | undefined;
+    for (const proc of selectedProcesses) {
+      if (processToTechnique[proc]) {
+        decorationTechnique = processToTechnique[proc];
+        break;
+      }
+    }
+
+    if (capsule) {
+      const sample = createSampleFromDesign({
+        designId: designId,
+        collectionName: capsule.collectionName,
+        collectionId: selectedCollection,
+        line: (capsule.lineId || 'woman') as Line,
+        lineName: capsule.lineName || capsule.lineId || 'Woman',
+        fabricName: primaryFabric?.fabricName || 'TBD',
+        silhouetteCode: primarySil?.code || 'CUSTOM',
+        silhouetteName: primarySil?.name || 'Custom Design',
+        designerName: currentUser?.name || 'Designer',
+        category: categoryToCombination[selectedCategory as string] || '1pc',
+        processes: selectedProcesses,
+        targetDate: capsule.targetInStoreDate
+          ? new Date(capsule.targetInStoreDate).toISOString().split('T')[0]
+          : new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
+        decorationTechnique,
+      });
+      addSample(sample);
+    }
+
     toast.success('Design Submitted Successfully', {
-      description: `${categoryLabel} design added to ${capsule?.collectionName}`,
+      description: `${categoryLabel} design added to ${capsule?.collectionName}. Sample tracking started.`,
     });
     
     onOpenChange(false);

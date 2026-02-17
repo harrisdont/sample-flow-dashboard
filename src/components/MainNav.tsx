@@ -10,8 +10,6 @@ const NAV_ITEMS = [
   { path: '/sourcing', label: 'Sourcing', icon: Package },
   { path: '/sampling-floor', label: 'Sampling Floor', icon: Users },
   { path: '/seasonal-planning', label: 'Planning', icon: Calendar },
-  { path: '/fabric-induction', label: 'Fabrics', icon: Layers },
-  { path: '/sampling', label: 'Silhouettes', icon: Scissors },
 ];
 
 interface MainNavProps {

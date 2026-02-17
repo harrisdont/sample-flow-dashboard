@@ -1,10 +1,16 @@
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Sample, ProcessStage } from '@/types/sample';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, CalendarClock, Calendar } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, CalendarClock, Calendar, RotateCcw } from 'lucide-react';
+import { useSampleStore } from '@/data/sampleStore';
+import { useCurrentUser } from '@/contexts/UserContext';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { MainNav } from '@/components/MainNav';
 import { 
@@ -59,6 +65,10 @@ const STAGE_LABELS: Record<ProcessStage, string> = {
 };
 
 export const EJobCard = ({ sample, onBack, onApprove, onReject }: EJobCardProps) => {
+  const { approveSample, rejectSample, requestRedo } = useSampleStore();
+  const { currentUser } = useCurrentUser();
+  const [redoDialogOpen, setRedoDialogOpen] = useState(false);
+  const [redoChanges, setRedoChanges] = useState('');
   const fullPath = getFullProductionPath(sample.decorationTechnique);
   const estimatedCompletion = calculateEstimatedCompletion(
     new Date(),
@@ -386,16 +396,68 @@ export const EJobCard = ({ sample, onBack, onApprove, onReject }: EJobCardProps)
           </TabsContent>
         </Tabs>
 
-        <div className="flex gap-4">
-          <Button onClick={onApprove} className="flex-1 gap-2 bg-[hsl(var(--status-approved))] hover:bg-[hsl(var(--status-approved))]/90">
+        <div className="flex gap-3">
+          <Button 
+            onClick={() => {
+              approveSample(sample.id, currentUser?.name || 'Unknown');
+              toast.success(`Sample ${sample.sampleNumber} approved`);
+              onApprove();
+            }} 
+            className="flex-1 gap-2 bg-[hsl(var(--status-approved))] hover:bg-[hsl(var(--status-approved))]/90"
+          >
             <CheckCircle2 className="h-5 w-5" />
             Approve Sample
           </Button>
-          <Button onClick={onReject} variant="destructive" className="flex-1 gap-2">
+          <Button 
+            onClick={() => {
+              rejectSample(sample.id, currentUser?.name || 'Unknown');
+              toast.error(`Sample ${sample.sampleNumber} rejected`);
+              onReject();
+            }} 
+            variant="destructive" 
+            className="flex-1 gap-2"
+          >
             <XCircle className="h-5 w-5" />
+            Reject
+          </Button>
+          <Button 
+            onClick={() => setRedoDialogOpen(true)} 
+            variant="outline" 
+            className="flex-1 gap-2"
+          >
+            <RotateCcw className="h-5 w-5" />
             Request Redo
           </Button>
         </div>
+
+        {/* Redo Dialog */}
+        <Dialog open={redoDialogOpen} onOpenChange={setRedoDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request Modifications</DialogTitle>
+            </DialogHeader>
+            <Textarea
+              placeholder="Describe the changes needed..."
+              value={redoChanges}
+              onChange={(e) => setRedoChanges(e.target.value)}
+              rows={4}
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRedoDialogOpen(false)}>Cancel</Button>
+              <Button onClick={() => {
+                if (redoChanges.trim()) {
+                  requestRedo(sample.id, currentUser?.name || 'Unknown', redoChanges);
+                  toast.info(`Redo requested for ${sample.sampleNumber}`);
+                  setRedoDialogOpen(false);
+                  setRedoChanges('');
+                  onReject();
+                }
+              }}>
+                Submit Redo Request
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
       </div>
     </div>

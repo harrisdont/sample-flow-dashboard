@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FabricEntry } from '@/data/fabricStore';
 import { 
   Package, 
   Truck, 
@@ -39,6 +40,7 @@ const SourcingDashboard = () => {
   const [activeTab, setActiveTab] = useState('pipeline');
   const [isAddFabricOpen, setIsAddFabricOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [reviewFabric, setReviewFabric] = useState<FabricEntry | null>(null);
 
   // Get fabric summary
   const fabricSummary = useMemo(() => getSeasonFabricSummary(), [fabrics]);
@@ -324,7 +326,7 @@ const SourcingDashboard = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <Badge variant="outline">{fabric.fabricType}</Badge>
-                              <Button size="sm" variant="outline">
+                              <Button size="sm" variant="outline" onClick={() => setReviewFabric(fabric)}>
                                 Review
                               </Button>
                             </div>
@@ -423,6 +425,18 @@ const SourcingDashboard = () => {
             <DialogTitle>Induct New Fabric</DialogTitle>
           </DialogHeader>
           <FabricInductionForm onClose={() => setIsAddFabricOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Review Fabric Dialog */}
+      <Dialog open={!!reviewFabric} onOpenChange={(open) => !open && setReviewFabric(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Review Fabric: {reviewFabric?.fabricName}</DialogTitle>
+          </DialogHeader>
+          {reviewFabric && (
+            <FabricInductionForm fabric={reviewFabric} onClose={() => setReviewFabric(null)} />
+          )}
         </DialogContent>
       </Dialog>
     </div>

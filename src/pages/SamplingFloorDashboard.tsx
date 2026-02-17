@@ -4,7 +4,7 @@ import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { NotificationBell } from '@/components/alerts/NotificationBell';
 import { useCurrentUser, MOCK_USERS } from '@/contexts/UserContext';
 import { useTaskStore } from '@/data/taskStore';
-import { mockSamples } from '@/data/mockData';
+import { useSampleStore } from '@/data/sampleStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -90,18 +90,19 @@ const MOCK_OPERATORS: OperatorData[] = [
 const SamplingFloorDashboard = () => {
   const { currentUser } = useCurrentUser();
   const { tasks, getTasksByDepartment } = useTaskStore();
+  const { samples: allSamples, advanceStage } = useSampleStore();
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedStage, setSelectedStage] = useState<ProcessStage | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Get samples grouped by stage
   const samplesByStage = useMemo(() => {
-    const grouped: Record<ProcessStage, typeof mockSamples> = {} as any;
+    const grouped: Record<ProcessStage, typeof allSamples> = {} as any;
     SAMPLING_STAGES.forEach(stage => {
-      grouped[stage.id] = mockSamples.filter(s => s.currentStage === stage.id);
+      grouped[stage.id] = allSamples.filter(s => s.currentStage === stage.id);
     });
     return grouped;
-  }, []);
+  }, [allSamples]);
 
   // Calculate stage workloads
   const stageWorkloads = useMemo(() => {
@@ -130,7 +131,7 @@ const SamplingFloorDashboard = () => {
 
   // Detect bottlenecks using the analysis engine
   const bottleneckReport = useMemo(() => {
-    const sampleData: SampleData[] = mockSamples.map(s => ({
+    const sampleData: SampleData[] = allSamples.map(s => ({
       id: s.id,
       code: s.sampleNumber,
       currentStage: s.currentStage,
@@ -139,7 +140,7 @@ const SamplingFloorDashboard = () => {
     }));
     
     return detectBottlenecks(sampleData, MOCK_OPERATORS, SAMPLING_STAGES);
-  }, []);
+  }, [allSamples]);
 
   // Legacy bottleneck reference for backward compatibility
   const bottlenecks = useMemo(() => {
@@ -153,22 +154,22 @@ const SamplingFloorDashboard = () => {
 
   // Get urgent items
   const urgentItems = useMemo(() => {
-    const overdueSamples = mockSamples.filter(s => 
+    const overdueSamples = allSamples.filter(s => 
       new Date(s.targetDate) < new Date() && s.approvalStatus !== 'approved'
     );
     return overdueSamples.slice(0, 5);
-  }, []);
+  }, [allSamples]);
 
   // Overall stats
   const stats = useMemo(() => {
-    const totalSamples = mockSamples.length;
-    const inProgress = mockSamples.filter(s => s.approvalStatus === 'pending').length;
-    const completed = mockSamples.filter(s => s.approvalStatus === 'approved').length;
-    const delayed = mockSamples.filter(s => s.isDelayed).length;
+    const totalSamples = allSamples.length;
+    const inProgress = allSamples.filter(s => s.approvalStatus === 'pending').length;
+    const completed = allSamples.filter(s => s.approvalStatus === 'approved').length;
+    const delayed = allSamples.filter(s => s.isDelayed).length;
     const totalOperators = MOCK_OPERATORS.length;
 
     return { totalSamples, inProgress, completed, delayed, totalOperators };
-  }, []);
+  }, [allSamples]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -534,7 +535,7 @@ const SamplingFloorDashboard = () => {
                                       size="sm" 
                                       className="w-full gap-2"
                                       onClick={() => {
-                                        console.log(`Advance ${sample.sampleNumber} to ${nextStage}`);
+                                        advanceStage(sample.id);
                                       }}
                                     >
                                       <ArrowRight className="h-3 w-3" />

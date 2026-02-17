@@ -6,7 +6,7 @@ import { useCurrentUser } from '@/contexts/UserContext';
 import { useTaskStore } from '@/data/taskStore';
 import { useDesignStore } from '@/data/designStore';
 import { useCapsuleStore, CapsuleCollection } from '@/data/capsuleCollectionData';
-import { mockSamples } from '@/data/mockData';
+import { useSampleStore } from '@/data/sampleStore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -16,6 +16,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { NewDesignForm } from '@/components/NewDesignForm';
+import { SilhouetteLibrary } from '@/components/SilhouetteLibrary';
+import { SilhouetteInductionForm } from '@/components/SilhouetteInductionForm';
+import { FabricInbox } from '@/components/FabricInbox';
+import { FabricInductionForm } from '@/components/FabricInductionForm';
+import { FabricStatusBoard } from '@/components/FabricStatusBoard';
+import { AccessoriesManager } from '@/components/AccessoriesManager';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useFabricStore } from '@/data/fabricStore';
 import { 
   Palette, 
   Users, 
@@ -29,6 +37,9 @@ import {
   Folder,
   Target,
   Zap,
+  Scissors,
+  Layers,
+  Package,
 } from 'lucide-react';
 import { format, differenceInDays, isToday, isTomorrow } from 'date-fns';
 import { STATUS_CONFIG, PRIORITY_CONFIG } from '@/types/task';
@@ -43,8 +54,12 @@ const DesignHub = () => {
   const { tasks, getTasksByAssignee } = useTaskStore();
   const { getDesignCountByCategory } = useDesignStore();
   const { capsules } = useCapsuleStore();
+  const { samples } = useSampleStore();
+  const { fabrics } = useFabricStore();
   const [activeTab, setActiveTab] = useState('collections');
   const [isNewDesignOpen, setIsNewDesignOpen] = useState(false);
+  const [isAddSilhouetteOpen, setIsAddSilhouetteOpen] = useState(false);
+  const [isAddFabricOpen, setIsAddFabricOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Get collections for user's assigned lines
@@ -210,10 +225,22 @@ const DesignHub = () => {
           {/* Main Content */}
           <div className="lg:col-span-2">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="mb-4">
+              <TabsList className="mb-4 flex-wrap h-auto gap-1">
                 <TabsTrigger value="collections">My Collections</TabsTrigger>
                 <TabsTrigger value="tasks">Task Board</TabsTrigger>
                 <TabsTrigger value="team">Team Workload</TabsTrigger>
+                <TabsTrigger value="silhouettes" className="gap-1">
+                  <Scissors className="h-3 w-3" />
+                  Silhouettes
+                </TabsTrigger>
+                <TabsTrigger value="fabrics" className="gap-1">
+                  <Layers className="h-3 w-3" />
+                  Fabrics
+                </TabsTrigger>
+                <TabsTrigger value="fabric-inbox" className="gap-1">
+                  <Package className="h-3 w-3" />
+                  Fabric Inbox
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="collections" className="space-y-4">
@@ -276,7 +303,7 @@ const DesignHub = () => {
 
                             {/* Samples in Decoration */}
                             {(() => {
-                              const decorationSamples = mockSamples.filter(
+                              const decorationSamples = samples.filter(
                                 s => s.collectionName === collection.collectionName && isDecorationStage(s.currentStage)
                               );
                               if (decorationSamples.length === 0) return null;
@@ -439,6 +466,35 @@ const DesignHub = () => {
                   ))
                 )}
               </TabsContent>
+
+              {/* Silhouettes Tab */}
+              <TabsContent value="silhouettes">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Silhouette Library</h3>
+                  <Button size="sm" className="gap-2" onClick={() => setIsAddSilhouetteOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    Add Silhouette
+                  </Button>
+                </div>
+                <SilhouetteLibrary onAddNew={() => setIsAddSilhouetteOpen(true)} />
+              </TabsContent>
+
+              {/* Fabrics Tab */}
+              <TabsContent value="fabrics">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Fabric Management</h3>
+                  <Button size="sm" className="gap-2" onClick={() => setIsAddFabricOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    Add Fabric
+                  </Button>
+                </div>
+                <FabricStatusBoard fabrics={fabrics} />
+              </TabsContent>
+
+              {/* Fabric Inbox Tab */}
+              <TabsContent value="fabric-inbox">
+                <FabricInbox />
+              </TabsContent>
             </Tabs>
           </div>
 
@@ -503,6 +559,16 @@ const DesignHub = () => {
       </div>
 
       <NewDesignForm open={isNewDesignOpen} onOpenChange={setIsNewDesignOpen} />
+      <SilhouetteInductionForm open={isAddSilhouetteOpen} onOpenChange={setIsAddSilhouetteOpen} />
+      
+      <Dialog open={isAddFabricOpen} onOpenChange={setIsAddFabricOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New Fabric</DialogTitle>
+          </DialogHeader>
+          <FabricInductionForm onClose={() => setIsAddFabricOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
