@@ -46,9 +46,20 @@ function MetricRow({ label, value, sub }: { label: string; value: string | numbe
 }
 
 // ─── Department stage lists ───────────────────────────────────────────────────
-const DESIGN_STAGES = ['design', 'pattern', 'motif-assignment', 'motif-in-progress', 'motif-review'];
-const SAMPLING_STAGES = ['semi-stitching', 'complete-stitching', 'hand-finishes', 'multihead-punching', 'multihead', 'pakki', 'ari-dori', 'cottage-work', 'adda'];
-const DECORATION_STAGES = ['pinning', 'stencil-transfer', 'hand-embroidery', 'screen-print-execution', 'hand-block-printing', 'decoration-approval', 'screen-print'];
+const DESIGN_STAGES = ['design', 'motif-assignment', 'motif-in-progress', 'motif-review'];
+
+const SAMPLING_STAGE_GROUPS = [
+  { label: 'Pattern Making', stages: ['pattern'] },
+  { label: 'Motif Design',   stages: ['motif-assignment', 'motif-in-progress', 'motif-review', 'motif'] },
+  { label: 'Punching',       stages: ['multihead-punching', 'punching'] },
+  { label: 'Stitching',      stages: ['semi-stitching', 'complete-stitching'] },
+  { label: 'Multihead',      stages: ['multihead'] },
+  { label: 'Pakki',          stages: ['pakki'] },
+  { label: 'Ari / Dori',     stages: ['ari-dori'] },
+  { label: 'Screen Print',   stages: ['screen-print', 'screen-print-execution', 'stencil-transfer'] },
+  { label: 'Hand Work',      stages: ['hand-embroidery', 'pinning', 'cottage-work', 'adda', 'hand-block-printing'] },
+  { label: 'Finishing',      stages: ['hand-finishes', 'decoration-approval'] },
+];
 
 // ─── Custom Tooltip ───────────────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -104,10 +115,9 @@ export const SeasonOverviewPanel = () => {
     }).length;
 
     return [
-      { dept: 'Design', ...categorise(DESIGN_STAGES) },
+      { dept: 'Design',   ...categorise(DESIGN_STAGES) },
       { dept: 'Sourcing', onTime: fabricsOnTime, delayed: fabricsDelayed },
-      { dept: 'Sampling', ...categorise(SAMPLING_STAGES) },
-      { dept: 'Decoration', ...categorise(DECORATION_STAGES) },
+      ...SAMPLING_STAGE_GROUPS.map(g => ({ dept: g.label, ...categorise(g.stages) })),
     ];
   }, [samples, fabrics, today]);
 
@@ -209,25 +219,27 @@ export const SeasonOverviewPanel = () => {
             No completed processes yet — data will appear as samples move through stages.
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData} barGap={4} barCategoryGap="35%">
-              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <ResponsiveContainer width="100%" height={420}>
+            <BarChart data={chartData} layout="vertical" barGap={3} barCategoryGap="30%" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
+              <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis
-                dataKey="dept"
-                tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
+                type="number"
                 allowDecimals={false}
                 tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                 axisLine={false}
                 tickLine={false}
-                width={28}
+              />
+              <YAxis
+                type="category"
+                dataKey="dept"
+                tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+                axisLine={false}
+                tickLine={false}
+                width={96}
               />
               <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.3)' }} />
-              <Bar dataKey="onTime" name="On Time" fill="hsl(var(--status-approved))" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="delayed" name="Delayed" fill="hsl(var(--status-delayed))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="onTime" name="On Time" fill="hsl(var(--status-approved))" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="delayed" name="Delayed" fill="hsl(var(--status-delayed))" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
