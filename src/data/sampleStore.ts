@@ -67,6 +67,9 @@ export const useSampleStore = create<SampleStore>((set, get) => ({
       const sample = state.samples.find(s => s.id === sampleId);
       if (!sample) return state;
 
+      // Approval gate: current stage must be approved before advancing
+      if (sample.approvalStatus !== 'approved') return state;
+
       const nextStage = getNextProductionStage(sample.currentStage, sample.decorationTechnique);
       if (!nextStage) return state;
 

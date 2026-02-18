@@ -13,7 +13,7 @@ import { SampleStageCard } from '@/components/sampling/SampleStageCard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { LayoutGrid, Search } from 'lucide-react';
+import { LayoutGrid, Search, Factory, Scan } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useCurrentUser } from '@/contexts/UserContext';
@@ -30,6 +30,10 @@ import {
   CommandGroup,
   CommandItem,
 } from '@/components/ui/command';
+import { ProductionTab } from '@/components/production/ProductionTab';
+import { ProductionCollectionView } from '@/components/production/ProductionCollectionView';
+import { ProductionTechpack } from '@/components/production/ProductionTechpack';
+import { ScanSampleTab } from '@/components/scan/ScanSampleTab';
 
 // Reuse stage/operator configs for bottleneck detection (same as SamplingFloorDashboard)
 const SAMPLING_STAGES: StageConfig[] = [
@@ -55,12 +59,23 @@ const MOCK_OPERATORS: OperatorData[] = [
   { id: 'op-9', name: 'Kamran Yousuf', skill: 'hand-finishes', capacity: 6 },
 ];
 
-type View = 'loading' | 'dashboard' | 'board' | 'ejob' | 'collection-detail';
+type View =
+  | 'loading'
+  | 'dashboard'
+  | 'board'
+  | 'ejob'
+  | 'collection-detail'
+  | 'production'
+  | 'production-collection'
+  | 'production-techpack'
+  | 'scan';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState<View>('loading');
   const [selectedSample, setSelectedSample] = useState<Sample | null>(null);
   const [selectedCollectionName, setSelectedCollectionName] = useState<string | null>(null);
+  const [productionCollectionName, setProductionCollectionName] = useState<string | null>(null);
+  const [productionTechpackSample, setProductionTechpackSample] = useState<Sample | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
 
   const samples = useSampleStore(state => state.samples);
@@ -123,8 +138,8 @@ const Index = () => {
     });
   }, [capsules, samples]);
 
+  // ── Handlers ──────────────────────────────────────────────
   const handleLoadingComplete = () => setCurrentView('dashboard');
-
   const handleScanSample = () => setSearchOpen(true);
 
   const handleCollectionClick = (collection: Collection) => {
@@ -143,16 +158,82 @@ const Index = () => {
     setSelectedCollectionName(null);
   };
 
+  const handleProductionCollectionClick = (collectionName: string) => {
+    setProductionCollectionName(collectionName);
+    setCurrentView('production-collection');
+  };
+
+  const handleProductionTechpackOpen = (sample: Sample) => {
+    setProductionTechpackSample(sample);
+    setCurrentView('production-techpack');
+  };
+
+  // ── Full-screen views (no nav shell) ──────────────────────
+
   if (currentView === 'loading') {
     return <LoadingScreen onComplete={handleLoadingComplete} />;
   }
 
   if (currentView === 'ejob' && selectedSample) {
+    return <EJobCard sample={selectedSample} onBack={handleBack} />;
+  }
+
+  if (currentView === 'production-techpack' && productionTechpackSample) {
     return (
-      <EJobCard
-        sample={selectedSample}
-        onBack={handleBack}
+      <ProductionTechpack
+        sample={productionTechpackSample}
+        onBack={() => {
+          setCurrentView('production-collection');
+          setProductionTechpackSample(null);
+        }}
       />
+    );
+  }
+
+  if (currentView === 'production-collection' && productionCollectionName) {
+    const capsule = Object.values(capsules).find(c => c.collectionName === productionCollectionName);
+    const collSamples = samples.filter(s => s.collectionName === productionCollectionName);
+    return (
+      <ProductionCollectionView
+        collectionName={productionCollectionName}
+        capsule={capsule}
+        samples={collSamples}
+        onBack={() => setCurrentView('production')}
+        onOpenTechpack={handleProductionTechpackOpen}
+      />
+    );
+  }
+
+  if (currentView === 'scan') {
+    return (
+      <div className="min-h-screen bg-background">
+        <MainNav>
+          <AddNewMenu />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCurrentView('production')}
+            className="gap-1.5"
+          >
+            <Factory className="h-4 w-4" />
+            <span className="hidden md:inline">Production</span>
+          </Button>
+          <Button variant="default" size="sm" className="gap-1.5">
+            <Scan className="h-4 w-4" />
+            <span className="hidden md:inline">Scan Sample</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setCurrentView('dashboard')}
+            size="sm"
+            className="gap-2"
+          >
+            <LayoutGrid className="h-4 w-4" />
+            <span className="hidden md:inline">Dashboard</span>
+          </Button>
+        </MainNav>
+        <ScanSampleTab />
+      </div>
     );
   }
 
@@ -226,7 +307,9 @@ const Index = () => {
                 </div>
               </div>
             ) : (
-              <p className="text-muted-foreground text-center py-8">No samples in this collection yet. Create designs to generate samples.</p>
+              <p className="text-muted-foreground text-center py-8">
+                No samples in this collection yet. Create designs to generate samples.
+              </p>
             )}
           </Card>
         </div>
@@ -234,10 +317,29 @@ const Index = () => {
     );
   }
 
+  // ── Main shell (dashboard, board, production list) ────────
   return (
     <div className="min-h-screen bg-background">
       <MainNav>
         <AddNewMenu />
+        <Button
+          variant={currentView === 'production' ? 'default' : 'ghost'}
+          onClick={() => setCurrentView('production')}
+          size="sm"
+          className="gap-1.5"
+        >
+          <Factory className="h-4 w-4" />
+          <span className="hidden md:inline">Production</span>
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setCurrentView('scan')}
+          size="sm"
+          className="gap-1.5"
+        >
+          <Scan className="h-4 w-4" />
+          <span className="hidden md:inline">Scan Sample</span>
+        </Button>
         <Button
           variant={currentView === 'board' ? 'default' : 'outline'}
           onClick={() => setCurrentView(currentView === 'board' ? 'dashboard' : 'board')}
@@ -245,11 +347,11 @@ const Index = () => {
           className="gap-2"
         >
           <LayoutGrid className="h-4 w-4" />
-          Heat Map
+          <span className="hidden md:inline">Heat Map</span>
         </Button>
       </MainNav>
 
-      {/* Sample Search Dialog */}
+      {/* Ctrl+K Sample Search Dialog */}
       <CommandDialog open={searchOpen} onOpenChange={setSearchOpen}>
         <CommandInput placeholder="Search by sample number, designer, or collection..." />
         <CommandList>
@@ -280,6 +382,10 @@ const Index = () => {
         </CommandList>
       </CommandDialog>
 
+      {currentView === 'production' && (
+        <ProductionTab onCollectionClick={handleProductionCollectionClick} />
+      )}
+
       {currentView === 'dashboard' && (
         <div className="p-6 space-y-8">
           <header className="flex items-center justify-between">
@@ -294,7 +400,9 @@ const Index = () => {
                   : 'Live Dashboard'}
               </h1>
               <p className="text-muted-foreground">
-                {currentUser ? `${ROLE_CONFIG[currentUser.role].label} · ${currentUser.name}` : 'Real-time production status'}
+                {currentUser
+                  ? `${ROLE_CONFIG[currentUser.role].label} · ${currentUser.name}`
+                  : 'Real-time production status'}
               </p>
             </div>
             <Button onClick={handleScanSample} size="lg" className="gap-2">
@@ -303,7 +411,6 @@ const Index = () => {
             </Button>
           </header>
 
-          {/* Season-wide overview — visible to all roles */}
           <SeasonOverviewPanel />
 
           {(userRole === 'director' || userRole === 'category-manager') && (
