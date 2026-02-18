@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Calendar, Layers, Scissors, Users, Package, Gauge, Palette } from 'lucide-react';
+import { LayoutDashboard, Calendar, Users, Package, Gauge, Palette, Factory, Scan } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
@@ -10,6 +10,8 @@ const NAV_ITEMS = [
   { path: '/sourcing', label: 'Sourcing', icon: Package },
   { path: '/design-hub', label: 'Design Hub', icon: Palette },
   { path: '/sampling-floor', label: 'Sampling Floor', icon: Users },
+  { path: '/production', label: 'Production', icon: Factory },
+  { path: '/scan', label: 'Scan Sample', icon: Scan },
 ];
 
 interface MainNavProps {
