@@ -3,6 +3,24 @@ import { TrimApplication } from './trimsStore';
 import { ClosureSpecification } from './accessoryStore';
 import { LiningConfig, SlipConfig } from '@/components/design/LiningConfigurator';
 
+// Production change note
+export interface ProductionNote {
+  id: string;
+  text: string;
+  department: 'design' | 'fabric' | 'stitching' | 'embroidery' | 'trims' | 'qc' | 'other';
+  addedBy: string;
+  addedAt: string; // ISO date string
+}
+
+// GGT (Graded Garment Template) file link
+export interface GGTFile {
+  id: string;
+  label: string;   // e.g. "Pattern v2 - All Sizes"
+  url: string;     // Google Drive, Dropbox, shared drive URL, etc.
+  addedBy: string;
+  addedAt: string; // ISO date string
+}
+
 // Component specification for multi-piece designs
 export interface ComponentSpec {
   silhouetteId: string;
@@ -82,6 +100,10 @@ export interface Design {
   additionalNotes?: string;
   createdAt: Date;
   status: 'pending' | 'approved' | 'rejected' | 'in-progress';
+
+  // Production additions
+  productionNotes?: ProductionNote[];
+  ggtFiles?: GGTFile[];
 }
 
 interface DesignStore {
@@ -91,6 +113,8 @@ interface DesignStore {
   removeDesign: (id: string) => void;
   getDesignsByCollection: (collectionId: string) => Design[];
   getDesignCountByCategory: (collectionId: string) => Record<string, number>;
+  addProductionNote: (designId: string, note: Omit<ProductionNote, 'id' | 'addedAt'>) => void;
+  addGGTFile: (designId: string, file: Omit<GGTFile, 'id' | 'addedAt'>) => void;
 }
 
 export const useDesignStore = create<DesignStore>((set, get) => ({
@@ -139,6 +163,44 @@ export const useDesignStore = create<DesignStore>((set, get) => ({
     
     return counts;
   },
+
+  addProductionNote: (designId, note) => set((state) => {
+    const design = state.designs[designId];
+    if (!design) return state;
+    const newNote: ProductionNote = {
+      ...note,
+      id: `pnote-${Date.now()}`,
+      addedAt: new Date().toISOString(),
+    };
+    return {
+      designs: {
+        ...state.designs,
+        [designId]: {
+          ...design,
+          productionNotes: [...(design.productionNotes || []), newNote],
+        },
+      },
+    };
+  }),
+
+  addGGTFile: (designId, file) => set((state) => {
+    const design = state.designs[designId];
+    if (!design) return state;
+    const newFile: GGTFile = {
+      ...file,
+      id: `ggt-${Date.now()}`,
+      addedAt: new Date().toISOString(),
+    };
+    return {
+      designs: {
+        ...state.designs,
+        [designId]: {
+          ...design,
+          ggtFiles: [...(design.ggtFiles || []), newFile],
+        },
+      },
+    };
+  }),
 }));
 
 // Helper to map silhouette category to design category
