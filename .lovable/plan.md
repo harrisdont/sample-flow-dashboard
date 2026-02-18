@@ -1,94 +1,129 @@
 
+# Dashboard Remodel — Season Operations Center
 
-# Dashboard Efficiency Upgrade
+## Summary of Changes Requested
 
-## What Changes
+1. Move the **Season Performance Chart** to the very top of the dashboard (before everything else)
+2. Replace technical jargon — "RAG table" is renamed to **Collection Health** (it's a colour-coded list showing which collections are on track, at risk, or behind)
+3. Build the full **5-stage pipeline overview** below the chart
 
-The Dashboard (landing page at `/`) currently displays hardcoded mock data that is disconnected from all other modules. This plan rewires it to read live data from the existing Zustand stores, computes KPIs dynamically, and replaces the stub "Scan Sample" button with a sample search/lookup.
+---
 
-## 1. Wire KPI Cards to Live Store Data
+## What "RAG" Means (Plain English)
 
-Replace the static `mockMetrics` object with computed values derived from `useSampleStore` and `useCapsuleStore`:
+The "RAG table" in the previous plan just means a colour-coded list of all collections with a traffic light indicator:
+- **Green** = On track, no delays
+- **Amber** = Some samples are running late
+- **Red** = More than half the samples are overdue
 
-- **Total Samples**: `useSampleStore.samples.length`
-- **Due Today**: Count samples where `stageDeadline === today`
-- **Overdue**: Count samples where `stageDeadline < today` and `approvalStatus === 'pending'`
-- **Bottleneck Alert**: Run `detectBottlenecks()` from the existing bottleneck engine against the live sample data to surface the most critical alert dynamically
+It will simply be called **"Collection Health"** in the UI.
 
-## 2. Wire Active Collections to Live Capsule Store
+---
 
-Replace the static `mockCollections` array. For each capsule collection from `useCapsuleStore`:
-
-- Compute `totalSamples` and `samplesCompleted` by querying `useSampleStore.getSamplesByCollection(collectionName)`
-- Derive `status` from the furthest-along sample's current stage
-- Derive `delay` by checking if any sample in the collection is overdue
-- Derive `lastUpdate` from the most recent `stageEntryDate` across all samples in that collection
-- Derive `location` from the current stage of the most recently updated sample
-
-This means the Active Collections list reflects actual sample pipeline state, not static display data.
-
-## 3. Replace "Scan Sample" with Sample Search
-
-Remove the stub that always loads `mockSamples[0]`. Replace with:
-
-- A search input (sample number or designer name) that filters `useSampleStore.samples`
-- Clicking a result opens its EJob Card with the store-connected approve/reject/advance actions
-- Keep the "Scan Sample" button but wire it to open the search dialog instead of hardcoding a sample
-
-## 4. Wire Collection Detail View to Live Data
-
-The collection-detail view currently reads from the static `Collection` type. Update it to:
-
-- Read from the capsule store for collection metadata (name, target date)
-- Query sample store for all samples in that collection
-- Show a list of samples with their current stage, entry date, and deadline (reusing the existing `SampleStageCard` component)
-- Allow clicking any sample to open its EJob Card
-
-## 5. Wire EJob Card Launch to Store
-
-The Dashboard currently has local `handleApprove`/`handleReject` that only fire toasts. Remove these and pass the sample's `id` to `EJobCard`, which already uses `useSampleStore` internally for approve/reject/redo actions.
-
-## Technical Details
-
-### Files Modified
-
-1. **`src/pages/Index.tsx`** -- Remove all imports of `mockCollections`, `mockSamples`, `mockMetrics`. Import `useSampleStore`, `useCapsuleStore`, `detectBottlenecks`. Compute metrics inline. Add sample search dialog. Rewire collection-detail to use capsule + sample stores. Remove local approve/reject handlers (EJobCard handles this internally).
-
-2. **`src/components/LiveDashboard.tsx`** -- No interface changes needed; it already accepts `collections`, `metrics`, and callbacks as props. The parent (`Index.tsx`) will pass computed data instead of mocks.
-
-3. **`src/data/mockData.ts`** -- Keep the file (sampleStore still seeds from `mockSamples`), but `Index.tsx` will no longer import `mockCollections` or `mockMetrics`.
-
-### Computed Metrics Logic (in Index.tsx)
+## Final Dashboard Layout (Top to Bottom)
 
 ```text
-const samples = useSampleStore(state => state.samples);
-const capsules = useCapsuleStore(state => state.capsules);
-const today = format(new Date(), 'yyyy-MM-dd');
-
-const metrics = {
-  totalSamples: samples.length,
-  dueToday: samples.filter(s => s.stageDeadline === today).length,
-  overdue: samples.filter(s => s.stageDeadline < today && s.approvalStatus === 'pending').length,
-  bottleneckAlert: detectBottlenecks(...).bottlenecks[0]?.stageName || 'No bottlenecks'
-};
-
-const collections = Object.values(capsules).map(capsule => {
-  const collSamples = samples.filter(s => s.collectionName === capsule.collectionName);
-  return {
-    name: capsule.collectionName,
-    slot: capsule.lineId,
-    totalSamples: collSamples.length,
-    samplesCompleted: collSamples.filter(s => s.approvalStatus === 'approved').length,
-    // ... derived status, delay, location, lastUpdate
-  };
-});
+┌──────────────────────────────────────────────────────────────┐
+│  Dashboard Header  [Role]  [Scan Sample]                      │
+├──────────────────────────────────────────────────────────────┤
+│  SEASON PERFORMANCE CHART  ← NEW, moved to the very top      │
+│  Bar chart: On-Time vs Delayed, per department                │
+│  (Design · Sourcing · Sampling · Decoration)                  │
+├──────────────────────────────────────────────────────────────┤
+│  PIPELINE OVERVIEW  (5 stage cards side by side)             │
+│                                                               │
+│  [1. Planning]  [2. Design]  [3. Sourcing]                   │
+│  [4. Sampling]  [5. Approved for Production]                  │
+├──────────────────────────────────────────────────────────────┤
+│  ROLE-SPECIFIC PANEL (existing, unchanged)                    │
+│  Director → Collection Health list + KPI cards               │
+│  Design Lead → My pipeline + overdue                         │
+│  Sampling Incharge → Floor queues                            │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-### Sample Search Component
+---
 
-A simple `CommandDialog` (already available via the installed `cmdk` package) that:
-- Opens on button click or Ctrl+K
-- Searches samples by number, designer name, or collection name
-- Shows matching results with current stage badge
-- Clicking a result navigates to the EJob Card view
+## What Each Section Shows
 
+### Season Performance Chart (top)
+
+A grouped bar chart (using the existing `recharts` library) with one bar group per department, each split into two colours:
+
+- **Green bar** = tasks/samples completed on time
+- **Red bar** = tasks overdue or still pending past their deadline
+
+Departments shown:
+- **Design** — samples currently in `design` or `pattern` stage
+- **Sourcing** — fabrics by their pipeline status (inducted on time vs overdue deadline)
+- **Sampling** — samples in stitching/finishing stages, on-time vs overdue
+- **Decoration** — samples in embroidery/print/pakki stages
+
+Data comes from the existing `useSampleStore` and `useFabricStore` — no new data needed.
+
+---
+
+### Pipeline Overview (5 cards)
+
+Each card is a simple box showing counts from live store data:
+
+| Card | What It Shows | Where Data Comes From |
+|---|---|---|
+| **Planning** | Whether the season plan is set; how many collections have been planned vs total lines (9) | `useCapsuleStore` — count of capsules created |
+| **Design** | How many designs have been submitted; how many sent to sampling | `useDesignStore` + `useSampleStore` |
+| **Sourcing** | Fabrics ready, fabrics still in treatment, fabrics needing orders placed | `useFabricStore` |
+| **Sampling** | Samples on the floor (in process), overdue, waiting for approval | `useSampleStore` |
+| **Production** | How many samples have been fully approved and are ready to go to bulk production | `useSampleStore` (`approvalStatus === 'approved'`) |
+
+Each card has a coloured left border: green if all is well, amber if some items are delayed, red if many items are overdue.
+
+---
+
+### Collection Health (part of Director role panel — existing, just renamed)
+
+The existing "RAG Collection Status" section in the Director panel is simply renamed to **"Collection Health"** and the labels are updated to plain English:
+- "On Track" (was "green")
+- "Needs Attention" (was "amber")
+- "Behind Schedule" (was "red")
+
+---
+
+## New File to Create
+
+**`src/components/dashboard/SeasonOverviewPanel.tsx`**
+
+This is one new component that contains:
+1. The performance chart (Section A)
+2. The 5 pipeline stage cards (Section B)
+
+It reads from `useSampleStore`, `useFabricStore`, `useCapsuleStore`, and `useDesignStore` directly — no props needed from the parent except `onCollectionClick` if the user wants to drill in.
+
+---
+
+## Files to Modify
+
+**`src/pages/Index.tsx`**
+- Import and render `<SeasonOverviewPanel />` at the very top of the dashboard section, before the role-specific panels
+- No other changes needed here
+
+**`src/components/dashboard/DirectorDashboardPanel.tsx`**
+- Rename "Collection RAG Status" heading → **"Collection Health"**
+- Update status badge labels: "On Track", "Needs Attention", "Behind Schedule"
+- No logic changes
+
+---
+
+## What Does NOT Change
+
+- The role-specific panels (Director KPI cards, Design Lead pipeline, Sampling floor queues) stay exactly where they are — just moved below the new chart
+- The sample search dialog (Ctrl+K) stays
+- The Heat Map button stays
+- The Planning page (`/seasonal-planning`) is not touched — it remains independent local state for now
+
+---
+
+## Implementation Order
+
+1. Create `SeasonOverviewPanel.tsx` with the performance chart and 5 pipeline cards
+2. Add it to `Index.tsx` above the role panels
+3. Update label text in `DirectorDashboardPanel.tsx` (rename RAG → Collection Health)
