@@ -1,136 +1,86 @@
 
-# Production Hub + Scan Sample — Updated Plan (With Spec Sheet & GGT Files)
+# Fix: Make Production Tab & Scan Sample Accessible From Everywhere
 
-## What's Being Added to the Previous Plan
+## Root Cause
 
-The full Production Hub + Scan Sample plan remains exactly as previously agreed. Two new sections are added **inside the Production Techpack** (Level 3), which is the shared document used by both the Production tab drill-down and the Scan Sample tab:
+The Production tab and Scan Sample tab are currently implemented as **view states** inside `Index.tsx` (the `/` route only). The buttons that toggle them appear only in the navigation bar when the user is already on `/`. 
 
-1. **Graded Garment Template (GGT) File Links** — a panel listing uploaded GGT/pattern files for the sample, each as a clickable download link
-2. **Specification Sheet** — a structured, print-ready summary table of all critical production measurements, grading, and construction specs
+The user is on `/sampling-floor` — a completely separate page with its own navigation — and from there, no Production button exists. This is a navigation dead-end that affects every page except the home dashboard.
 
-Both are rendered inside `ProductionTechpack.tsx` as dedicated sections below the Fabric Specifications block.
+## The Fix
 
----
+Move both features to **proper standalone routes** so the existing `MainNav` (which is already on every page) can link to them directly. This is the correct architectural pattern — the same way `/director`, `/design-hub`, `/sourcing`, and `/sampling-floor` all work.
 
-## What GGT Files Are
+### New Routes
 
-GGT (Graded Garment Template) files are the pattern files used by the pattern room and cutting department. They contain the final graded pattern for every size. The techpack needs to link to these so any department picking up the sample can immediately access the correct cut files.
+| Route | Component | What it renders |
+|---|---|---|
+| `/production` | `ProductionPage` (new) | The existing `ProductionTab` component |
+| `/scan` | `ScanPage` (new) | The existing `ScanSampleTab` component |
 
-Since the app has no file server, GGT files are stored as **URL strings** (can be a shared drive path, Google Drive link, or any URL) attached to the `Design` record. The field is added to `designStore.ts`.
+### Add to MainNav
 
----
+Two new entries added to the `NAV_ITEMS` array in `MainNav.tsx`:
 
-## Updated Techpack Section Order (Level 3)
+| Label | Icon | Path |
+|---|---|---|
+| Production | `Factory` | `/production` |
+| Scan Sample | `Scan` | `/scan` |
 
-```text
-ProductionTechpack.tsx
-├── 1. Identity Block
-├── 2. Design Sketch & Technical Drawing
-├── 3. Specification Sheet          ← NEW
-├── 4. GGT File Links               ← NEW
-├── 5. Fabric Specifications (per component)
-├── 6. Trims & Closures
-├── 7. Embroidery / Artwork
-├── 8. Lining & Slip Config
-├── 9. Stage Approval Gate Tracker
-└── 10. Production Change Notes
-```
+These sit alongside the existing Dashboard, Director, Planning, Sourcing, Design Hub, and Sampling Floor links — visible and active-highlighted on every page.
 
----
+### Handle drill-down navigation from `/production`
 
-## Section 3 — Specification Sheet
+The Production tab has a three-level drill-down (overview → collection → techpack). Since this is now a route, the drill-down needs to stay within the page using local state — exactly the same pattern currently used in `Index.tsx`. The new `ProductionPage` will manage the `productionView`, `productionCollectionName`, and `productionTechpackSample` states that currently live inside `Index.tsx`.
 
-A structured table (or grid of labelled fields) presenting all construction and sizing specs in a single glanceable block — the kind a cutter or QC officer would refer to on the floor.
+### Clean up `Index.tsx`
 
-### What it shows
-
-| Field | Source |
-|---|---|
-| Silhouette Code | `sample.silhouetteCode` |
-| Silhouette Name | `sample.silhouetteName` |
-| Combination | `sample.combination` (1pc / 2pc / 3pc / 4pc) |
-| Sizes | `sample.sizes` (e.g. S, M, L, XL) |
-| Total Quantity (Sample) | `sample.totalQty` |
-| Colour | `sample.colour` |
-| Further Colourways | `sample.furtherColourways` (listed as badges) |
-| Seam Finish | `design.seamFinish` or per-component from `design.components[x].customModifications.seamFinish` |
-| Recommended SPI | From matched `FabricEntry.technicalSpecs.recommendedSPI` |
-| Fabric Width | `FabricEntry.technicalSpecs.fabricWidth` |
-| GSM | `FabricEntry.technicalSpecs.gsm` |
-| Shrinkage Margin | `FabricEntry.technicalSpecs.shrinkageMargin` |
-| Construction Notes | `FabricEntry.technicalSpecs.construction` |
-| Stitching Specs | `FabricEntry.technicalSpecs.stitchingSpecs` |
-| Care Instructions | `FabricEntry.technicalSpecs.careInstructions` or `sample.careInstructions` |
-| Decoration Technique | `sample.decorationTechnique` (displayed as a badge if present) |
-| Fast Track | Badge shown if `design.fastTrack === true` |
-| Sample Type | `design.sampleType` |
-| Season | `sample.season` |
-| Target Date | `sample.targetDate` |
-
-This is rendered as a clean two-column grid with a light background, using the same card style already in use across the app.
+Remove the `'production'`, `'production-collection'`, `'production-techpack'`, and `'scan'` view states from `Index.tsx` entirely — along with the Production and Scan Sample buttons from the nav slots in that file. The home dashboard reverts to only managing `'dashboard'`, `'board'`, `'ejob'`, and `'collection-detail'`.
 
 ---
 
-## Section 4 — GGT File Links
+## Files to Create
 
-A panel listing the GGT/pattern files associated with this design. Each file entry shows:
-- File name (editable label)
-- A clickable link (opens in a new tab — works for Google Drive, Dropbox, shared drive URLs, etc.)
-- An "Upload / Add Link" form at the bottom of the section to paste a new URL and give it a label
+### `src/pages/ProductionPage.tsx`
+A new standalone page wrapping the existing production components. Manages the three-level drill-down state internally:
+- `view: 'list' | 'collection' | 'techpack'`
+- `selectedCollectionName`
+- `selectedSample`
 
-### Data storage
+Renders `ProductionTab` → `ProductionCollectionView` → `ProductionTechpack` based on view state. Includes `MainNav` at the top.
 
-GGT file links are stored directly on the `Design` record. Two additions are made to `designStore.ts`:
+### `src/pages/ScanPage.tsx`
+A minimal wrapper that renders `MainNav` + `ScanSampleTab`. The scan tab already opens the techpack inline as a sheet, so no additional state management is needed here.
 
+---
+
+## Files to Modify
+
+### `src/components/MainNav.tsx`
+Add two entries to `NAV_ITEMS`:
 ```ts
-// New interface
-export interface GGTFile {
-  id: string;
-  label: string;       // e.g. "Pattern v2 - All Sizes" or "WS2046-graded.ggt"
-  url: string;         // any URL: Google Drive link, file server path, etc.
-  addedBy: string;
-  addedAt: string;     // ISO date string
-}
+{ path: '/production', label: 'Production', icon: Factory },
+{ path: '/scan', label: 'Scan Sample', icon: Scan },
+```
+Import `Factory` and `Scan` from `lucide-react`.
 
-// Added to Design interface
-ggtFiles?: GGTFile[];
+### `src/App.tsx`
+Add two new routes:
+```tsx
+<Route path="/production" element={<ProductionPage />} />
+<Route path="/scan" element={<ScanPage />} />
 ```
 
-New store action:
-```ts
-addGGTFile: (designId: string, file: Omit<GGTFile, 'id' | 'addedAt'>) => void;
-```
-
-This parallels the existing `addProductionNote` action being added in the same file — consistent pattern.
+### `src/pages/Index.tsx`
+- Remove `'production'`, `'production-collection'`, `'production-techpack'`, `'scan'` from the `View` type
+- Remove the `productionCollectionName`, `productionTechpackSample` states
+- Remove the `handleProductionCollectionClick` and `handleProductionTechpackOpen` handlers
+- Remove the production and scan conditional renders and `if` blocks
+- Remove the Production and Scan Sample buttons from the `MainNav` children in the main shell return
+- Remove the unused imports: `ProductionTab`, `ProductionCollectionView`, `ProductionTechpack`, `ScanSampleTab`, `Factory`, `Scan`
 
 ---
 
-## Files That Change (Additions to the Previously Agreed List)
+## Result
 
-### `src/data/designStore.ts`
-Previously planned changes (adding `ProductionNote`, `productionNotes`, `addProductionNote`) remain. Now also add:
-- `GGTFile` interface (exported)
-- `ggtFiles?: GGTFile[]` on the `Design` interface
-- `addGGTFile(designId, file)` action on `useDesignStore`
-
-### `src/components/production/ProductionTechpack.tsx`
-This is a new file being created anyway. The two new sections (Spec Sheet and GGT Files) are added as additional section blocks within the same component — no architectural change, just two more sections in the document.
-
----
-
-## Everything Else Remains Identical
-
-All five files to create and three files to modify from the previous plan are unchanged:
-
-Files to create:
-- `src/components/production/ProductionTab.tsx`
-- `src/components/production/ProductionCollectionView.tsx`
-- `src/components/production/ProductionTechpack.tsx` (with Spec Sheet + GGT sections added)
-- `src/components/scan/ScanSampleTab.tsx`
-
-Files to modify:
-- `src/data/designStore.ts` (ProductionNote + GGTFile additions)
-- `src/data/sampleStore.ts` (approval gate guard in `advanceStage`)
-- `src/pages/Index.tsx` (new view states + nav buttons)
-
-Implementation order is also unchanged — the only difference is that `ProductionTechpack.tsx` now renders two additional sections.
+After this change, the user on any page — including `/sampling-floor` — will see **Production** and **Scan Sample** in the top navigation bar and can click directly to those features without going back to the home dashboard first.
