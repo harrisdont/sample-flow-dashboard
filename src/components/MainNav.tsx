@@ -6,10 +6,10 @@ import { cn } from '@/lib/utils';
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/director', label: 'Director', icon: Gauge },
-  { path: '/design-hub', label: 'Design Hub', icon: Palette },
-  { path: '/sourcing', label: 'Sourcing', icon: Package },
-  { path: '/sampling-floor', label: 'Sampling Floor', icon: Users },
   { path: '/seasonal-planning', label: 'Planning', icon: Calendar },
+  { path: '/sourcing', label: 'Sourcing', icon: Package },
+  { path: '/design-hub', label: 'Design Hub', icon: Palette },
+  { path: '/sampling-floor', label: 'Sampling Floor', icon: Users },
 ];
 
 interface MainNavProps {
