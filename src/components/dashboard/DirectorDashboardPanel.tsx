@@ -118,9 +118,9 @@ export const DirectorDashboardPanel = ({
         </div>
       </Card>
 
-      {/* RAG Collection Status */}
+      {/* Collection Health */}
       <Card className="p-6">
-        <h3 className="font-semibold mb-4">Collection RAG Status</h3>
+        <h3 className="font-semibold mb-4">Collection Health</h3>
         <div className="space-y-3">
           {collections.map((collection, i) => {
             const rag = getRAGStatus(collection, samples);

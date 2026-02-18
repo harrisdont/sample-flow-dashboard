@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useCurrentUser } from '@/contexts/UserContext';
 import { DirectorDashboardPanel } from '@/components/dashboard/DirectorDashboardPanel';
+import { SeasonOverviewPanel } from '@/components/dashboard/SeasonOverviewPanel';
 import { DesignLeadDashboardPanel } from '@/components/dashboard/DesignLeadDashboardPanel';
 import { SamplingDashboardPanel } from '@/components/dashboard/SamplingDashboardPanel';
 import { ROLE_CONFIG } from '@/types/user';
@@ -280,7 +281,7 @@ const Index = () => {
       </CommandDialog>
 
       {currentView === 'dashboard' && (
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-8">
           <header className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">
@@ -301,6 +302,9 @@ const Index = () => {
               Scan Sample
             </Button>
           </header>
+
+          {/* Season-wide overview — visible to all roles */}
+          <SeasonOverviewPanel />
 
           {(userRole === 'director' || userRole === 'category-manager') && (
             <DirectorDashboardPanel
