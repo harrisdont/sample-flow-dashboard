@@ -375,6 +375,7 @@ export const ComponentSelector = ({
           <ScrollArea className="max-h-[70vh] pr-4">
             <FabricInductionForm 
               defaultCollectionId={collectionId}
+              autoInduct
               onClose={() => {
                 setIsAddFabricOpen(false);
                 onFabricAdded?.();

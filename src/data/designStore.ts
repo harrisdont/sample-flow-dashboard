@@ -121,7 +121,7 @@ interface DesignStore {
 const mockDesigns: Record<string, Design> = {
   'design-ws2046': {
     id: 'design-ws2046',
-    collectionId: 'Luxe Basics',
+    collectionId: 'luxe-basics',
     silhouetteId: 'W-LNG-001',
     fabricId: 'fab-luxe-shirt',
     category: 'twoPiece',
@@ -165,7 +165,7 @@ const mockDesigns: Record<string, Design> = {
   },
   'design-cs3024': {
     id: 'design-cs3024',
-    collectionId: 'Festive Heritage',
+    collectionId: 'festive-heritage',
     silhouetteId: 'C-SRT-012',
     fabricId: 'fab-festive-shirt',
     category: 'threePiece',
@@ -201,7 +201,7 @@ const mockDesigns: Record<string, Design> = {
   },
   'design-fs1089': {
     id: 'design-fs1089',
-    collectionId: 'Corporate Elite',
+    collectionId: 'corporate-elite',
     silhouetteId: 'F-BLZ-008',
     fabricId: 'fab-corporate-shirt',
     category: 'onePiece',
@@ -237,7 +237,7 @@ const mockDesigns: Record<string, Design> = {
   },
   'design-ws2050': {
     id: 'design-ws2050',
-    collectionId: 'Luxe Basics',
+    collectionId: 'luxe-basics',
     silhouetteId: 'W-SRT-003',
     fabricId: 'fab-luxe-shirt',
     category: 'twoPiece',
