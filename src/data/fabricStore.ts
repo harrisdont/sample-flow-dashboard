@@ -257,7 +257,7 @@ const sampleFabrics: FabricEntry[] = [
   // ── Luxe Basics (Woman SS26) ──────────────────────────────────────────────
   {
     id: 'fab-luxe-shirt',
-    collectionId: 'Luxe Basics',
+    collectionId: 'luxe-basics',
     collectionName: 'Luxe Basics',
     lineId: 'woman',
     lineName: 'Woman',
@@ -294,7 +294,7 @@ const sampleFabrics: FabricEntry[] = [
   },
   {
     id: 'fab-luxe-dupatta',
-    collectionId: 'Luxe Basics',
+    collectionId: 'luxe-basics',
     collectionName: 'Luxe Basics',
     lineId: 'woman',
     lineName: 'Woman',
@@ -330,7 +330,7 @@ const sampleFabrics: FabricEntry[] = [
   // ── Festive Heritage (Cottage AW25) ───────────────────────────────────────
   {
     id: 'fab-festive-shirt',
-    collectionId: 'Festive Heritage',
+    collectionId: 'festive-heritage',
     collectionName: 'Festive Heritage',
     lineId: 'cottage',
     lineName: 'Cottage',
@@ -364,7 +364,7 @@ const sampleFabrics: FabricEntry[] = [
   },
   {
     id: 'fab-festive-khaddar',
-    collectionId: 'Festive Heritage',
+    collectionId: 'festive-heritage',
     collectionName: 'Festive Heritage',
     lineId: 'cottage',
     lineName: 'Cottage',
@@ -400,7 +400,7 @@ const sampleFabrics: FabricEntry[] = [
   // ── Corporate Elite (Formals SS26) ────────────────────────────────────────
   {
     id: 'fab-corporate-shirt',
-    collectionId: 'Corporate Elite',
+    collectionId: 'corporate-elite',
     collectionName: 'Corporate Elite',
     lineId: 'formals',
     lineName: 'Formals',
@@ -434,7 +434,7 @@ const sampleFabrics: FabricEntry[] = [
   },
   {
     id: 'fab-corporate-wool',
-    collectionId: 'Corporate Elite',
+    collectionId: 'corporate-elite',
     collectionName: 'Corporate Elite',
     lineId: 'formals',
     lineName: 'Formals',

@@ -50,6 +50,7 @@ interface FabricInductionFormProps {
   fabric?: FabricEntry;
   onClose: () => void;
   defaultCollectionId?: string;
+  autoInduct?: boolean;
 }
 
 const CONSTRUCTION_OPTIONS = [
@@ -72,7 +73,7 @@ interface CareLabelArtwork {
   notes: string;
 }
 
-export const FabricInductionForm = ({ fabric, onClose, defaultCollectionId }: FabricInductionFormProps) => {
+export const FabricInductionForm = ({ fabric, onClose, defaultCollectionId, autoInduct = false }: FabricInductionFormProps) => {
   const { capsules } = useCapsuleStore();
   const { 
     addFabricEntry, 
@@ -296,16 +297,31 @@ export const FabricInductionForm = ({ fabric, onClose, defaultCollectionId }: Fa
         return;
       }
       
-      const status = getInitialStatus(fabricType, baseTreatmentType);
+      const status = autoInduct ? 'inducted' as const : getInitialStatus(fabricType, baseTreatmentType);
       
       const printClassification: PrintClassification | undefined = 
         (baseTreatmentType === 'printing' && printCategory && printColorScheme && printScale)
           ? { category: printCategory as PrintCategory, colorScheme: printColorScheme as PrintColorScheme, scale: printScale as PrintScale }
           : undefined;
       
-      const initialSpecs = (partialSpecs.recommendedSPI || partialSpecs.ironingInstructions || partialSpecs.handlingNotes)
+      // When auto-inducting from design form, provide default tech specs
+      let techSpecs: any = (partialSpecs.recommendedSPI || partialSpecs.ironingInstructions || partialSpecs.handlingNotes)
         ? partialSpecs as any
         : undefined;
+      if (autoInduct && !techSpecs) {
+        techSpecs = {
+          construction: construction || 'Plain weave',
+          fabricWidth: fabricWidth || '58 inches',
+          gsm: gsm ? parseInt(gsm) : undefined,
+          costPerMeter: costPerMeter ? parseFloat(costPerMeter) : 0,
+          shrinkageMargin: shrinkageMargin || 'TBD',
+          stitchingSpecs: stitchingSpecs || 'Standard',
+          careInstructions: careInstructions || undefined,
+          recommendedSPI: recommendedSPI ? parseInt(recommendedSPI) : undefined,
+          ironingInstructions: ironingInstructions || undefined,
+          handlingNotes: handlingNotes || undefined,
+        };
+      }
       
       addFabricEntry({
         collectionId: collection.id,
@@ -319,19 +335,20 @@ export const FabricInductionForm = ({ fabric, onClose, defaultCollectionId }: Fa
         fabricType,
         colorId: selectedColorId,
         status,
-        artworkSubmitted: false,
+        artworkSubmitted: autoInduct || false,
         baseTreatmentType,
         printType: baseTreatmentType === 'printing' ? printType : undefined,
         dyePlan: baseTreatmentType === 'dyeing' ? dyePlan : undefined,
         printPlan: baseTreatmentType === 'printing' ? printPlan : undefined,
         printClassification,
-        baseTreatmentComplete: baseTreatmentType === 'none' && !['jacquard', 'dobby', 'yarn-dyed'].includes(fabricType),
+        baseTreatmentComplete: autoInduct || (baseTreatmentType === 'none' && !['jacquard', 'dobby', 'yarn-dyed'].includes(fabricType)),
         surfaceTreatments,
-        surfaceTreatmentComplete: surfaceTreatments.length === 0,
+        surfaceTreatmentComplete: autoInduct || surfaceTreatments.length === 0,
         fabricDeadline,
-        technicalSpecs: initialSpecs,
+        technicalSpecs: techSpecs,
+        ...(autoInduct ? { inductedAt: new Date() } : {}),
       });
-      toast.success('Fabric added successfully!');
+      toast.success(autoInduct ? 'Fabric inducted and added successfully!' : 'Fabric added successfully!');
     }
     
     onClose();
