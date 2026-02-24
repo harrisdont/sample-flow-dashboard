@@ -1,176 +1,146 @@
 
 
-# Redesign Silhouette Induction Form — Full Overhaul
+# Silhouette Approval Submission Form + PKR Currency Fix
 
-This plan covers the complete restructuring of the silhouette induction form, including all the category/sub-type changes, measurements, sketches, seam finish, **plus** a preview design sheet with PDF download and notification forwarding to the relevant person's inbox.
+## Overview
 
----
-
-## Summary of All Changes
-
-The current `SilhouetteInductionForm` is a basic form with manual codes, 5 flat categories, a single sketch upload, and no measurements, seam finish, preview, or PDF. This plan transforms it into a comprehensive, multi-section form with:
-
-- Auto-generated codes (no manual input)
-- Product line and designer name fields
-- 7 categories with secondary sub-type dropdowns
-- Front + back sketch uploaders with crop/adjust/AI enhance toolbar
-- Reference images section
-- Category-specific measurement fields
-- Seam finish selector (same options as New Design)
-- Fabric selector from inducted fabrics
-- **Preview design sheet** (rendered summary card of all entered data)
-- **PDF download** of the preview sheet (using jsPDF + html2canvas, same pattern as `NewDesignForm`)
-- **Submit with notification** — on submit, a notification is created via `useNotificationStore.addNotification()` and forwarded to the inbox of the relevant recipient (design lead / sampling incharge) based on the selected product line
+This plan addresses two requests:
+1. **Approval submission form**: When a silhouette is approved (the "approve" step), expand it into a comprehensive submission with a spec sheet (sizes 8-16), GGT pattern link with grading, sleeve/neckline categorisation that auto-codes into the library, final fitting photos, and stitching lead time + cost.
+2. **Currency fix**: Replace all `₹`, `IndianRupee`, and `Rs.` references with `PKR` across the codebase.
 
 ---
 
-## Detailed File Changes
+## Detailed Changes
 
-### 1. `src/data/silhouetteStore.ts` — Type and Data Updates
+### 1. Currency Fix — Replace INR/₹ with PKR
 
-**Update `SilhouetteCategory`:**
+**Files affected:**
+
+- **`src/components/design/ComponentSelector.tsx`** (lines 20, 260, 302, 340, 347, 355): Replace `IndianRupee` icon import with a generic currency approach (use text "PKR" instead of icon), replace `₹` with `PKR `.
+- **`src/components/design/ClosureSelector.tsx`** (lines 21, 149): Replace `IndianRupee` import and `₹` with `PKR `.
+- **`src/components/NewDesignForm.tsx`** (lines 45, 1101, 1108, 1115, 1122): Replace `IndianRupee` icon references with `PKR` text.
+- **`src/components/SilhouetteCard.tsx`** (lines 135, 145, 150): Replace `Rs.` with `PKR`.
+- **`src/components/SilhouetteInductionForm.tsx`** (lines 863, 874, 881-895): Replace `Rs.` with `PKR`.
+- **`src/pages/FabricInduction.tsx`** (line 369): Already uses `PKR` — no change needed.
+
+### 2. `src/data/silhouetteStore.ts` — Expand Interface for Approval Data
+
+Add new fields to the `Silhouette` interface:
+
+```ts
+// Spec sheet — graded measurements for sizes 8-16
+specSheet?: Record<string, Record<string, string>>; // { "8": { "chest": "34", ... }, "10": { ... } }
+
+// Categorised construction details
+necklineId?: string;    // Links to necklineLibrary
+sleeveId?: string;      // Links to sleeveLibrary
+
+// Final fitting photos
+fittingPhotos?: string[];
+
+// Lead time
+stitchingLeadTimeDays?: number;
 ```
-'top' | 'bottom' | 'dupatta' | 'dress' | 'outerwear' | 'slip' | 'accessories'
+
+Update `approveSilhouette` to accept these new fields in its `data` parameter.
+
+Update `GRADING_SIZE_OPTIONS` — add numeric sizes: `['8', '10', '12', '14', '16']` (replace the current letter-based options, or keep both and add the numeric set as `SPEC_SHEET_SIZES`).
+
+### 3. `src/data/libraryData.ts` — Auto-Induction to Neckline/Sleeve Library
+
+Add functions or store methods that allow new neckline/sleeve entries to be added dynamically:
+
+- Export `necklineLibrary` and `sleeveLibrary` as mutable (convert to a small Zustand store or use a mutable array with a setter).
+- On approval, if the user enters a new neckline name that does not exist in the library, auto-generate a code (e.g., `NK-NEW-007`) and push it into the library so it appears in the New Design form's modifications tab.
+- Same for sleeves (e.g., `SL-NEW-007`).
+
+Since the current libraries are static arrays, the cleanest approach is to create a small `useConstructionLibraryStore` in a new file or extend `libraryData.ts` with Zustand so entries persist in session.
+
+### 4. `src/components/SilhouetteInductionForm.tsx` — Redesign Approve Step
+
+The current approve step (lines 812-914) has: GGT link, technical drawing uploader, grading sizes (letter badges), fabric selector, consumption, stitching cost.
+
+**Replace with a comprehensive single-view approval form:**
+
+**Section A — Silhouette Summary (read-only header)**
+- Code, name, category, sub-type badge, sketches thumbnail
+
+**Section B — Spec Sheet (Graded Measurements)**
+- A table with columns for sizes 8, 10, 12, 14, 16
+- Rows are the category-specific measurement fields (from `CATEGORY_MEASUREMENTS`)
+- Each cell is an editable input
+- This creates a full grading spec sheet
+
+**Section C — GGT Pattern File**
+- GGT file link input (existing)
+- Grading sizes checkboxes (existing, but add numeric 8-16)
+
+**Section D — Construction Categorisation**
+- **Neckline**: Dropdown from `necklineLibrary` + "Add New" option that opens an inline input to create a new entry (auto-coded, auto-inducted into library)
+- **Sleeve**: Same pattern — dropdown from `sleeveLibrary` + "Add New"
+- These are relevant for tops, dresses, outerwear. For bottoms/dupatta/accessories, these sections are conditionally hidden.
+
+**Section E — Final Fitting Photos**
+- Multi-image uploader (reuse the same `SketchUploader` pattern or the reference images grid)
+- Each photo gets the crop/adjust/AI enhance toolbar
+
+**Section F — Stitching Lead Time & Cost**
+- Stitching Lead Time (days) — number input
+- Stitching Cost (PKR) — number input
+- Link Inducted Fabric — dropdown (existing)
+- Fabric Consumption (meters) — number input (existing)
+- Cost calculation summary (existing, but with PKR)
+
+**Section G — Action Buttons**
+- Reject (with reason textarea)
+- Approve & Induct
+
+**On Approve:**
+- Save all new fields to silhouette store
+- If new neckline/sleeve were created, induct them into the library
+- The neckline/sleeve entries become available in the New Design form's modifications tab
+- GGT patterns with grading are stored on the silhouette record
+
+### 5. Neckline/Sleeve Library Store — New File `src/data/constructionLibraryStore.ts`
+
+A small Zustand store that wraps the static `necklineLibrary` and `sleeveLibrary` arrays and allows runtime additions:
+
+```ts
+interface ConstructionLibraryStore {
+  necklines: NecklineItem[];
+  sleeves: SleeveItem[];
+  addNeckline: (name: string) => NecklineItem;
+  addSleeve: (name: string) => SleeveItem;
+}
 ```
 
-**Add `SilhouetteSubType` mapping constant:**
+- Initialised with the existing static data from `libraryData.ts`
+- `addNeckline` generates the next code (`NK-{3-letter}-{NNN}`) and appends
+- `addSleeve` generates `SL-{3-letter}-{NNN}` and appends
+- `NewDesignForm` is updated to read from this store instead of the static arrays
 
-| Category | Sub-types |
-|----------|-----------|
-| Top | Kurta, Kameez, Tunic, Choli/Blouse |
-| Bottom | Shalwar, Trousers, Lehenga, Saree, Gharara/Sharara, Skirt, Dhoti, Sarong |
-| Dress | Anarkali/Angarkha, Kaftan |
-| Outerwear | Koti, Jacket, Coat |
-| Dupatta | Regular, Stole, Scarf, Experimental |
-| Accessories | Bag, Wallet, Scrunchie, Special Edition |
-| Slip | Slip (single option) |
+### 6. `src/components/NewDesignForm.tsx` — Use Dynamic Library
 
-**Add new fields to `Silhouette` interface:**
-- `subType: string`
-- `lineId?: string` — product line
-- `designerName?: string`
-- `frontSketch?: string`
-- `backSketch?: string`
-- `referenceImages?: string[]`
-- `measurements?: Record<string, string>` — category-specific
-- `seamFinish?: string`
-- `linkedFabricId?: string` (already exists on approval, move to creation)
+Update imports to use `useConstructionLibraryStore` for necklines and sleeves instead of the static `necklineLibrary` / `sleeveLibrary`. This way, any neckline or sleeve inducted during silhouette approval immediately appears in the New Design form's modifications dropdown.
 
-**Update `SILHOUETTE_CATEGORY_LABELS`** for 7 new categories.
+### 7. Downstream — Files Already Using Rs./₹/IndianRupee
 
-**Migrate sample silhouettes** — map old `kurta`/`shirt` → `top`, `pants` → `bottom`.
+All currency displays across the following files will be updated to use `PKR` consistently:
+- `ComponentSelector.tsx` — fabric cost display
+- `ClosureSelector.tsx` — accessory cost display  
+- `NewDesignForm.tsx` — cost breakdown panel
+- `SilhouetteCard.tsx` — cost tooltip
+- `SilhouetteInductionForm.tsx` — approval cost calculation
 
-### 2. `src/data/libraryData.ts` — Add Constants
-
-Export two new constants:
-
-**`SILHOUETTE_SUB_TYPES`** — `Record<SilhouetteCategory, { id: string; label: string }[]>`
-
-**`CATEGORY_MEASUREMENTS`** — measurement field definitions per category:
-
-- **Top**: Length, Chest, Shoulder, Sleeve Length, Armhole, Hem Width, Neck Depth Front, Neck Depth Back, Sleeve Opening
-- **Bottom**: Length, Waist, Hip, Inseam, Thigh, Knee, Hem Opening, Rise
-- **Dupatta**: Length, Width
-- **Dress**: Length, Chest, Shoulder, Sleeve Length, Armhole, Waist, Hip, Hem Width, Neck Depth Front, Neck Depth Back
-- **Outerwear**: Length, Chest, Shoulder, Sleeve Length, Armhole, Hem Width, Overlap/Closure Width
-- **Slip**: Length, Chest, Hip, Hem Width
-- **Accessories**: Length, Width, Depth/Gusset
-
-### 3. `src/components/SilhouetteInductionForm.tsx` — Full Redesign of Submit Step
-
-The `submit` step is replaced with a multi-tab form inside the dialog (max-w-4xl for more room):
-
-**Tab 1 — Basic Info:**
-- Auto-generated code (read-only display, generated on submit from `{LinePrefix}-{CategoryPrefix}-{SubTypePrefix}-{NNN}`)
-- Product Line selector (9 lines: cottage, classic, formals, woman, ming, basic, semi-bridals, leather, regen)
-- Designer Name text input
-- Category dropdown (7 categories)
-- Sub-type dropdown (filtered by category)
-- Silhouette Name field
-
-**Tab 2 — Sketches & References:**
-- Front Sketch uploader (reused `SketchUploader` component)
-- Back Sketch uploader (separate instance)
-- Each uploader gets a small toolbar below the preview with 3 buttons:
-  - **Crop** — placeholder (shows "Coming Soon" toast)
-  - **Adjust Colors** — placeholder
-  - **Enhance with AI** — placeholder
-- Reference Images section: multi-upload grid with remove buttons
-
-**Tab 3 — Technical Details:**
-- Category-specific measurement fields (dynamically rendered from `CATEGORY_MEASUREMENTS` config, all optional)
-- Seam Finish selector — uses `seamFinishLibrary` from `libraryData.ts` (same as `NewDesignForm`), rendered as a `Select` dropdown showing `{name} - {type}`
-- Fabric selector — dropdown of inducted fabrics from `useFabricStore`
-
-**Tab 4 — Designer Notes:**
-- Designer Notes textarea (existing)
-
-**Tab 5 — Preview & Submit:**
-- A `SilhouettePreviewSheet` component (new, described below) renders a read-only summary of all data
-- A ref is attached to the preview for PDF generation
-- **Download PDF** button — uses the same `jsPDF` + `html2canvas` pattern from `NewDesignForm`:
-  ```ts
-  const canvas = await html2canvas(previewRef.current, { scale: 2, useCORS: true });
-  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm' });
-  pdf.addImage(...);
-  pdf.save(`silhouette-induction-${code}-${Date.now()}.pdf`);
-  ```
-- **Submit** button — calls `addSilhouette()` with all new fields, then creates a notification via `useNotificationStore.addNotification()`:
-  ```ts
-  addNotification({
-    type: 'task-assigned',
-    severity: 'info',
-    title: `New Silhouette Inducted: ${name}`,
-    message: `${designerName} has submitted silhouette ${code} (${subType}) for ${lineName} line. Review required.`,
-    relatedEntityType: 'design',
-    relatedEntityId: newSilhouetteId,
-    actionUrl: '/design-hub',
-    actionLabel: 'View Silhouette',
-    recipientRoles: ['design-lead', 'sampling-incharge'],
-  });
-  ```
-
-### 4. New Component: `src/components/SilhouettePreviewSheet.tsx`
-
-A read-only card component (similar in structure to `TechpackPreview`) that renders:
-
-- **Header**: "Silhouette Induction Sheet" + date + auto-generated code
-- **Basic Info section**: Line, Designer, Category, Sub-type, Name
-- **Sketches section**: Front and back sketch images side by side
-- **Reference Images**: Grid of reference images (if any)
-- **Measurements section**: Table/grid of filled measurement fields (skips empty ones)
-- **Technical Details**: Seam finish, linked fabric
-- **Designer Notes**: Notes text block
-
-This component accepts all form data as props and is wrapped in a `forwardRef` so the parent can capture it for PDF generation.
-
-### 5. Downstream Category Migration
-
-Files referencing old `SilhouetteCategory` values need updates:
-
-- **`src/components/SilhouetteLibrary.tsx`** — update filter tabs from `kurta/shirt/dress/pants/dupatta` to `top/bottom/dupatta/dress/outerwear/slip/accessories`
-- **`src/components/SilhouetteStatusBoard.tsx`** — category display labels
-- **`src/components/SilhouetteCard.tsx`** — category badge
-- **`src/components/design/ComponentSelector.tsx`** — silhouette category filtering
-
-The mapping: `kurta` → `top`, `shirt` → `top`, `pants` → `bottom`, `dress` → `dress`, `dupatta` → `dupatta`. New additions: `outerwear`, `slip`, `accessories`.
-
-### 6. Sketch Toolbar (Crop/Adjust/AI)
-
-Below each sketch preview, three icon buttons:
-- **Crop** → `toast.info('Crop tool coming soon')`
-- **Adjust Colors** → `toast.info('Color adjustment coming soon')`
-- **AI Enhance** → `toast.info('AI enhancement coming soon')`
-
-These are visual placeholders for now, ready to be wired to real implementations later.
+The `IndianRupee` lucide icon import will be removed from all files where it's used. Cost values will display as `PKR 850` instead of `₹850` or `Rs. 850`.
 
 ---
 
 ## Technical Notes
 
-- The `Silhouette` interface gains ~8 new optional fields. Existing silhouettes continue working due to optional typing.
-- The old `sketchFile` field maps to `frontSketch` for existing data (backward compat in the form's `useEffect` initializer).
-- PDF generation reuses the exact same `jsPDF` + `html2canvas` libraries already installed and used in `NewDesignForm`.
-- Notification forwarding uses the existing `useNotificationStore.addNotification()` — the notification appears in the `NotificationBell` component for users with `design-lead` or `sampling-incharge` roles.
-- The `AlertType` already includes `'task-assigned'` which is appropriate for new silhouette submissions.
+- **Spec sheet data structure**: `Record<string, Record<string, string>>` where outer keys are size labels ("8", "10", etc.) and inner keys are measurement field IDs. This allows the grading table to render dynamically based on category.
+- **Neckline/sleeve auto-coding**: The code prefix is derived from the first 3 characters of the name (uppercase). Sequential number is based on current library length + 1.
+- **Fitting photos** reuse the same `SketchUploader` component with `compact` mode and the crop/adjust/AI toolbar.
+- **Conditional rendering**: Neckline and sleeve sections only appear for categories where they're relevant (top, dress, outerwear). They're hidden for bottom, dupatta, slip, accessories.
+- **PKR currency**: All monetary values across the entire application will consistently display as `PKR` (Pakistani Rupee).
 
