@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Plus, FileText, Layout, FolderOpen } from 'lucide-react';
 import { NewDesignForm } from './NewDesignForm';
-import { NewSilhouetteForm } from './NewSilhouetteForm';
+import { SilhouetteInductionForm } from './SilhouetteInductionForm';
 import { NewCollectionForm } from './NewCollectionForm';
 
 export const AddNewMenu = () => {
@@ -42,7 +42,7 @@ export const AddNewMenu = () => {
       </DropdownMenu>
 
       <NewDesignForm open={designFormOpen} onOpenChange={setDesignFormOpen} />
-      <NewSilhouetteForm open={silhouetteFormOpen} onOpenChange={setSilhouetteFormOpen} />
+      <SilhouetteInductionForm open={silhouetteFormOpen} onOpenChange={setSilhouetteFormOpen} />
       <NewCollectionForm open={collectionFormOpen} onOpenChange={setCollectionFormOpen} />
     </>
   );
