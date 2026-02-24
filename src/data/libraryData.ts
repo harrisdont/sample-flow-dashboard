@@ -1,5 +1,7 @@
 // Library data for silhouettes, necklines, sleeves, etc.
 
+import { SilhouetteCategory } from '@/data/silhouetteStore';
+
 export interface SilhouetteItem {
   id: string;
   name: string;
@@ -101,3 +103,147 @@ export const baseFabricLibrary: BaseFabricItem[] = [
   { id: 'linen', name: 'Pure Linen', defaultComposition: '100% Linen', type: 'greige' },
   { id: 'linen-blend', name: 'Linen Blend', defaultComposition: '55% Linen, 45% Cotton', type: 'greige' },
 ];
+
+// ── Silhouette Sub-Types per Category ────────────────────────────────────────
+
+export const SILHOUETTE_SUB_TYPES: Record<SilhouetteCategory, { id: string; label: string }[]> = {
+  top: [
+    { id: 'kurta', label: 'Kurta' },
+    { id: 'kameez', label: 'Kameez' },
+    { id: 'tunic', label: 'Tunic' },
+    { id: 'choli-blouse', label: 'Choli/Blouse' },
+  ],
+  bottom: [
+    { id: 'shalwar', label: 'Shalwar' },
+    { id: 'trousers', label: 'Trousers' },
+    { id: 'lehenga', label: 'Lehenga' },
+    { id: 'saree', label: 'Saree' },
+    { id: 'gharara-sharara', label: 'Gharara/Sharara' },
+    { id: 'skirt', label: 'Skirt' },
+    { id: 'dhoti', label: 'Dhoti' },
+    { id: 'sarong', label: 'Sarong' },
+  ],
+  dress: [
+    { id: 'anarkali-angarkha', label: 'Anarkali/Angarkha' },
+    { id: 'kaftan', label: 'Kaftan' },
+  ],
+  outerwear: [
+    { id: 'koti', label: 'Koti' },
+    { id: 'jacket', label: 'Jacket' },
+    { id: 'coat', label: 'Coat' },
+  ],
+  dupatta: [
+    { id: 'regular', label: 'Regular' },
+    { id: 'stole', label: 'Stole' },
+    { id: 'scarf', label: 'Scarf' },
+    { id: 'experimental', label: 'Experimental' },
+  ],
+  accessories: [
+    { id: 'bag', label: 'Bag' },
+    { id: 'wallet', label: 'Wallet' },
+    { id: 'scrunchie', label: 'Scrunchie' },
+    { id: 'special-edition', label: 'Special Edition' },
+  ],
+  slip: [
+    { id: 'slip', label: 'Slip' },
+  ],
+};
+
+// ── Category-Specific Measurements ───────────────────────────────────────────
+
+export interface MeasurementField {
+  id: string;
+  label: string;
+  unit: string;
+}
+
+export const CATEGORY_MEASUREMENTS: Record<SilhouetteCategory, MeasurementField[]> = {
+  top: [
+    { id: 'length', label: 'Length', unit: 'in' },
+    { id: 'chest', label: 'Chest', unit: 'in' },
+    { id: 'shoulder', label: 'Shoulder', unit: 'in' },
+    { id: 'sleeve-length', label: 'Sleeve Length', unit: 'in' },
+    { id: 'armhole', label: 'Armhole', unit: 'in' },
+    { id: 'hem-width', label: 'Hem Width', unit: 'in' },
+    { id: 'neck-depth-front', label: 'Neck Depth (Front)', unit: 'in' },
+    { id: 'neck-depth-back', label: 'Neck Depth (Back)', unit: 'in' },
+    { id: 'sleeve-opening', label: 'Sleeve Opening', unit: 'in' },
+  ],
+  bottom: [
+    { id: 'length', label: 'Length', unit: 'in' },
+    { id: 'waist', label: 'Waist', unit: 'in' },
+    { id: 'hip', label: 'Hip', unit: 'in' },
+    { id: 'inseam', label: 'Inseam', unit: 'in' },
+    { id: 'thigh', label: 'Thigh', unit: 'in' },
+    { id: 'knee', label: 'Knee', unit: 'in' },
+    { id: 'hem-opening', label: 'Hem Opening', unit: 'in' },
+    { id: 'rise', label: 'Rise', unit: 'in' },
+  ],
+  dupatta: [
+    { id: 'length', label: 'Length', unit: 'in' },
+    { id: 'width', label: 'Width', unit: 'in' },
+  ],
+  dress: [
+    { id: 'length', label: 'Length', unit: 'in' },
+    { id: 'chest', label: 'Chest', unit: 'in' },
+    { id: 'shoulder', label: 'Shoulder', unit: 'in' },
+    { id: 'sleeve-length', label: 'Sleeve Length', unit: 'in' },
+    { id: 'armhole', label: 'Armhole', unit: 'in' },
+    { id: 'waist', label: 'Waist', unit: 'in' },
+    { id: 'hip', label: 'Hip', unit: 'in' },
+    { id: 'hem-width', label: 'Hem Width', unit: 'in' },
+    { id: 'neck-depth-front', label: 'Neck Depth (Front)', unit: 'in' },
+    { id: 'neck-depth-back', label: 'Neck Depth (Back)', unit: 'in' },
+  ],
+  outerwear: [
+    { id: 'length', label: 'Length', unit: 'in' },
+    { id: 'chest', label: 'Chest', unit: 'in' },
+    { id: 'shoulder', label: 'Shoulder', unit: 'in' },
+    { id: 'sleeve-length', label: 'Sleeve Length', unit: 'in' },
+    { id: 'armhole', label: 'Armhole', unit: 'in' },
+    { id: 'hem-width', label: 'Hem Width', unit: 'in' },
+    { id: 'overlap-closure', label: 'Overlap/Closure Width', unit: 'in' },
+  ],
+  slip: [
+    { id: 'length', label: 'Length', unit: 'in' },
+    { id: 'chest', label: 'Chest', unit: 'in' },
+    { id: 'hip', label: 'Hip', unit: 'in' },
+    { id: 'hem-width', label: 'Hem Width', unit: 'in' },
+  ],
+  accessories: [
+    { id: 'length', label: 'Length', unit: 'in' },
+    { id: 'width', label: 'Width', unit: 'in' },
+    { id: 'depth-gusset', label: 'Depth/Gusset', unit: 'in' },
+  ],
+};
+
+// ── Product Lines (shared constant) ──────────────────────────────────────────
+
+export interface ProductLine {
+  id: string;
+  name: string;
+  prefix: string;
+}
+
+export const PRODUCT_LINES: ProductLine[] = [
+  { id: 'cottage', name: 'Cottage', prefix: 'COT' },
+  { id: 'classic', name: 'Classic', prefix: 'CLS' },
+  { id: 'formals', name: 'Formals', prefix: 'FRM' },
+  { id: 'woman', name: 'Woman', prefix: 'WMN' },
+  { id: 'ming', name: 'Ming', prefix: 'MNG' },
+  { id: 'basic', name: 'Basic', prefix: 'BSC' },
+  { id: 'semi-bridals', name: 'Semi Bridals', prefix: 'SBR' },
+  { id: 'leather', name: 'Leather', prefix: 'LTH' },
+  { id: 'regen', name: 'Regen', prefix: 'RGN' },
+];
+
+// Category prefix mapping for code generation
+export const CATEGORY_PREFIXES: Record<SilhouetteCategory, string> = {
+  top: 'TOP',
+  bottom: 'BTM',
+  dupatta: 'DUP',
+  dress: 'DRS',
+  outerwear: 'OTW',
+  slip: 'SLP',
+  accessories: 'ACC',
+};

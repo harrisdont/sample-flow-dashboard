@@ -7,30 +7,44 @@ export type SilhouetteStatus =
   | 'approved' 
   | 'rejected';
 
-export type SilhouetteCategory = 'kurta' | 'shirt' | 'dress' | 'pants' | 'dupatta';
+export type SilhouetteCategory = 'top' | 'bottom' | 'dupatta' | 'dress' | 'outerwear' | 'slip' | 'accessories';
 
 export interface Silhouette {
   id: string;
-  code: string;                    // e.g., "W-LNG-001"
-  name: string;                    // e.g., "Long Kurta"
+  code: string;
+  name: string;
   category: SilhouetteCategory;
+  subType?: string;
+  
+  // Line & Designer
+  lineId?: string;
+  designerName?: string;
   
   // Workflow status
   status: SilhouetteStatus;
   
   // Design input
-  sketchFile?: string;             // Designer's sketch upload
+  sketchFile?: string;             // Legacy — maps to frontSketch
+  frontSketch?: string;
+  backSketch?: string;
+  referenceImages?: string[];
   designerNotes?: string;
   
+  // Measurements (category-specific)
+  measurements?: Record<string, string>;
+  
+  // Seam finish
+  seamFinish?: string;
+  
   // Pattern & Sample
-  ggtFileLink?: string;            // Pattern file link (added on approval)
+  ggtFileLink?: string;
   gradingComplete: boolean;
-  gradingSizes: string[];          // e.g., ["XS", "S", "M", "L", "XL"]
+  gradingSizes: string[];
   
   // Cost data (added on approval)
-  fabricConsumption?: number;      // Meters required
-  stitchingCost?: number;          // Cost in currency
-  linkedFabricId?: string;         // Link to inducted fabric for cost calculation
+  fabricConsumption?: number;
+  stitchingCost?: number;
+  linkedFabricId?: string;
   
   // Technical drawing
   technicalDrawing?: string;
@@ -51,11 +65,13 @@ export const SILHOUETTE_STATUS_CONFIG: Record<SilhouetteStatus, { label: string;
 };
 
 export const SILHOUETTE_CATEGORY_LABELS: Record<SilhouetteCategory, string> = {
-  'kurta': 'Kurta',
-  'shirt': 'Shirt',
-  'dress': 'Dress',
-  'pants': 'Pants',
+  'top': 'Top',
+  'bottom': 'Bottom',
   'dupatta': 'Dupatta',
+  'dress': 'Dress',
+  'outerwear': 'Outerwear',
+  'slip': 'Slip',
+  'accessories': 'Accessories',
 };
 
 export const GRADING_SIZE_OPTIONS = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
@@ -104,7 +120,8 @@ const sampleSilhouettes: Record<string, Silhouette> = {
     id: 'sil-001',
     code: 'W-LNG-001',
     name: 'Long Kurta Classic',
-    category: 'kurta',
+    category: 'top',
+    subType: 'kurta',
     status: 'approved',
     gradingComplete: true,
     gradingSizes: ['XS', 'S', 'M', 'L', 'XL'],
@@ -120,7 +137,8 @@ const sampleSilhouettes: Record<string, Silhouette> = {
     id: 'sil-002',
     code: 'W-SHT-002',
     name: 'Short Kurta Modern',
-    category: 'kurta',
+    category: 'top',
+    subType: 'kurta',
     status: 'approved',
     gradingComplete: true,
     gradingSizes: ['S', 'M', 'L', 'XL'],
@@ -136,7 +154,8 @@ const sampleSilhouettes: Record<string, Silhouette> = {
     id: 'sil-003',
     code: 'W-STR-003',
     name: 'Straight Shirt',
-    category: 'shirt',
+    category: 'top',
+    subType: 'kameez',
     status: 'in-pattern',
     gradingComplete: false,
     gradingSizes: [],
@@ -148,7 +167,8 @@ const sampleSilhouettes: Record<string, Silhouette> = {
     id: 'sil-004',
     code: 'W-ALN-004',
     name: 'A-Line Shirt',
-    category: 'shirt',
+    category: 'top',
+    subType: 'tunic',
     status: 'sample-ready',
     gradingComplete: false,
     gradingSizes: [],
@@ -160,7 +180,8 @@ const sampleSilhouettes: Record<string, Silhouette> = {
     id: 'sil-005',
     code: 'W-WLP-005',
     name: 'Wide Leg Pants',
-    category: 'pants',
+    category: 'bottom',
+    subType: 'trousers',
     status: 'sketch-submitted',
     gradingComplete: false,
     gradingSizes: [],
@@ -174,7 +195,8 @@ const sampleSilhouettes: Record<string, Silhouette> = {
     id: 'sil-006',
     code: 'W-BLZ-006',
     name: 'Tailored Blazer',
-    category: 'shirt',
+    category: 'outerwear',
+    subType: 'jacket',
     status: 'rejected',
     gradingComplete: false,
     gradingSizes: [],
