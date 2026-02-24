@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, Calendar, Users, Package, Gauge, Palette, Factory, Scan } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AddNewMenu } from './AddNewMenu';
 
 const NAV_ITEMS = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -48,11 +49,10 @@ export const MainNav = ({ children }: MainNavProps) => {
             })}
           </div>
           
-          {children && (
-            <div className="flex items-center gap-2">
-              {children}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <AddNewMenu />
+            {children}
+          </div>
         </div>
       </div>
     </nav>
