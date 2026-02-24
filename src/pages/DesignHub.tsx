@@ -15,7 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { NewDesignForm } from '@/components/NewDesignForm';
+
 import { SilhouetteLibrary } from '@/components/SilhouetteLibrary';
 import { SilhouetteInductionForm } from '@/components/SilhouetteInductionForm';
 import { FabricInbox } from '@/components/FabricInbox';
@@ -57,7 +57,7 @@ const DesignHub = () => {
   const { samples } = useSampleStore();
   const { fabrics } = useFabricStore();
   const [activeTab, setActiveTab] = useState('collections');
-  const [isNewDesignOpen, setIsNewDesignOpen] = useState(false);
+  
   const [isAddSilhouetteOpen, setIsAddSilhouetteOpen] = useState(false);
   const [isAddFabricOpen, setIsAddFabricOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -150,10 +150,6 @@ const DesignHub = () => {
               {' '}{format(new Date(), 'EEEE, MMMM d')}
             </p>
           </div>
-          <Button onClick={() => setIsNewDesignOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Design
-          </Button>
         </div>
 
         {/* Quick Stats */}
@@ -558,7 +554,6 @@ const DesignHub = () => {
         </div>
       </div>
 
-      <NewDesignForm open={isNewDesignOpen} onOpenChange={setIsNewDesignOpen} />
       <SilhouetteInductionForm open={isAddSilhouetteOpen} onOpenChange={setIsAddSilhouetteOpen} />
       
       <Dialog open={isAddFabricOpen} onOpenChange={setIsAddFabricOpen}>

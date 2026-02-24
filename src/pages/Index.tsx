@@ -3,7 +3,6 @@ import { LoadingScreen } from '@/components/LoadingScreen';
 import { LiveDashboard } from '@/components/LiveDashboard';
 import { EJobCard } from '@/components/EJobCard';
 import { SamplingBoard } from '@/components/SamplingBoard';
-import { AddNewMenu } from '@/components/AddNewMenu';
 import { MainNav } from '@/components/MainNav';
 import { useSampleStore } from '@/data/sampleStore';
 import { useCapsuleStore } from '@/data/capsuleCollectionData';
@@ -237,7 +236,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <MainNav>
-        <AddNewMenu />
         <Button
           variant={currentView === 'board' ? 'default' : 'outline'}
           onClick={() => setCurrentView(currentView === 'board' ? 'dashboard' : 'board')}
