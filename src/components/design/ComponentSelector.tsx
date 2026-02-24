@@ -50,15 +50,15 @@ interface ComponentSelectorProps {
 }
 
 const COMPONENT_TYPE_TO_SILHOUETTE_CATEGORY: Record<ComponentType, SilhouetteCategory[]> = {
-  'shirt': ['kurta', 'shirt', 'dress'],
-  'lowers': ['pants'],
+  'shirt': ['top', 'dress'],
+  'lowers': ['bottom'],
   'dupatta': ['dupatta'],
-  'slip': ['dress'],
-  'lining': ['kurta', 'shirt'],
-  'lehenga': ['pants'],
-  'choli': ['shirt'],
+  'slip': ['slip', 'dress'],
+  'lining': ['top'],
+  'lehenga': ['bottom'],
+  'choli': ['top'],
   'saree': ['dupatta'],
-  'blouse': ['shirt'],
+  'blouse': ['top'],
 };
 
 export const ComponentSelector = ({

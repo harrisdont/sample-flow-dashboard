@@ -72,9 +72,9 @@ export const SilhouetteCard = ({ silhouette }: SilhouetteCardProps) => {
               alt={silhouette.name}
               className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform"
             />
-          ) : silhouette.sketchFile ? (
+          ) : silhouette.frontSketch || silhouette.sketchFile ? (
             <img
-              src={silhouette.sketchFile}
+              src={silhouette.frontSketch || silhouette.sketchFile}
               alt={silhouette.name}
               className="w-full h-full object-cover"
             />

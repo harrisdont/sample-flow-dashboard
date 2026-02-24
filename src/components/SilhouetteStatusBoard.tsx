@@ -89,9 +89,9 @@ const MiniSilhouetteCard = ({ silhouette }: { silhouette: Silhouette }) => {
         <div className="flex gap-3">
           {/* Thumbnail */}
           <div className="w-12 h-16 bg-muted rounded overflow-hidden flex-shrink-0">
-            {silhouette.technicalDrawing || silhouette.sketchFile ? (
+            {silhouette.technicalDrawing || silhouette.frontSketch || silhouette.sketchFile ? (
               <img
-                src={silhouette.technicalDrawing || silhouette.sketchFile}
+                src={silhouette.technicalDrawing || silhouette.frontSketch || silhouette.sketchFile}
                 alt={silhouette.name}
                 className="w-full h-full object-contain"
               />
