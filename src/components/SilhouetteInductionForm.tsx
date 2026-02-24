@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -51,8 +52,10 @@ import {
   SILHOUETTE_CATEGORY_LABELS,
   SILHOUETTE_STATUS_CONFIG,
   GRADING_SIZE_OPTIONS,
+  SPEC_SHEET_SIZES,
   useSilhouetteStore,
 } from '@/data/silhouetteStore';
+import { useConstructionLibraryStore } from '@/data/constructionLibraryStore';
 import { useFabricStore, FabricEntry } from '@/data/fabricStore';
 import { useNotificationStore } from '@/data/notificationStore';
 import {
@@ -235,6 +238,7 @@ export const SilhouetteInductionForm = ({
   
   const { fabrics, getFabricById } = useFabricStore();
   const { addNotification } = useNotificationStore();
+  const { necklines, sleeves, addNeckline, addSleeve } = useConstructionLibraryStore();
   const previewRef = useRef<HTMLDivElement>(null);
 
   // Form state — new fields
@@ -261,6 +265,17 @@ export const SilhouetteInductionForm = ({
   const [technicalDrawing, setTechnicalDrawing] = useState('');
   const [activeTab, setActiveTab] = useState('basic');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  // New approval form state
+  const [specSheet, setSpecSheet] = useState<Record<string, Record<string, string>>>({});
+  const [selectedNecklineId, setSelectedNecklineId] = useState('');
+  const [selectedSleeveId, setSelectedSleeveId] = useState('');
+  const [newNecklineName, setNewNecklineName] = useState('');
+  const [newSleeveName, setNewSleeveName] = useState('');
+  const [isAddingNeckline, setIsAddingNeckline] = useState(false);
+  const [isAddingSleeve, setIsAddingSleeve] = useState(false);
+  const [fittingPhotos, setFittingPhotos] = useState<string[]>([]);
+  const [stitchingLeadTimeDays, setStitchingLeadTimeDays] = useState('');
 
   // Reference image upload
   const refImageInputRef = useRef<HTMLInputElement>(null);
@@ -351,6 +366,15 @@ export const SilhouetteInductionForm = ({
     setStitchingCost('');
     setTechnicalDrawing('');
     setActiveTab('basic');
+    setSpecSheet({});
+    setSelectedNecklineId('');
+    setSelectedSleeveId('');
+    setNewNecklineName('');
+    setNewSleeveName('');
+    setIsAddingNeckline(false);
+    setIsAddingSleeve(false);
+    setFittingPhotos([]);
+    setStitchingLeadTimeDays('');
   };
 
   const toggleSize = (size: string) => {
@@ -472,6 +496,22 @@ export const SilhouetteInductionForm = ({
       toast.error('Please complete all required fields');
       return;
     }
+
+    // Auto-induct new neckline/sleeve if created
+    let finalNecklineId = selectedNecklineId;
+    let finalSleeveId = selectedSleeveId;
+
+    if (isAddingNeckline && newNecklineName.trim()) {
+      const newItem = addNeckline(newNecklineName.trim());
+      finalNecklineId = newItem.id;
+      toast.success(`Neckline "${newNecklineName.trim()}" inducted into library as ${newItem.code}`);
+    }
+    if (isAddingSleeve && newSleeveName.trim()) {
+      const newItem = addSleeve(newSleeveName.trim());
+      finalSleeveId = newItem.id;
+      toast.success(`Sleeve "${newSleeveName.trim()}" inducted into library as ${newItem.code}`);
+    }
+
     approveSilhouette(silhouette.id, {
       ggtFileLink,
       gradingSizes,
@@ -479,6 +519,11 @@ export const SilhouetteInductionForm = ({
       stitchingCost: parseFloat(stitchingCost),
       linkedFabricId: linkedFabricId || undefined,
       technicalDrawing: technicalDrawing || undefined,
+      specSheet: Object.keys(specSheet).length > 0 ? specSheet : undefined,
+      necklineId: finalNecklineId || undefined,
+      sleeveId: finalSleeveId || undefined,
+      fittingPhotos: fittingPhotos.length > 0 ? fittingPhotos : undefined,
+      stitchingLeadTimeDays: stitchingLeadTimeDays ? parseInt(stitchingLeadTimeDays) : undefined,
     });
     toast.success('Silhouette approved and inducted');
     onOpenChange(false);
@@ -501,7 +546,7 @@ export const SilhouetteInductionForm = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`${currentStep === 'submit' ? 'max-w-4xl' : 'max-w-2xl'} max-h-[90vh] overflow-y-auto`}>
+      <DialogContent className={`${currentStep === 'submit' || currentStep === 'approve' ? 'max-w-4xl' : 'max-w-2xl'} max-h-[90vh] overflow-y-auto`}>
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -811,7 +856,8 @@ export const SilhouetteInductionForm = ({
 
         {/* ═══ APPROVE STEP ═══ */}
         {currentStep === 'approve' && silhouette && (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Section A — Silhouette Summary */}
             <div className="bg-muted/50 rounded-lg p-4">
               <div className="flex items-center gap-4">
                 {(silhouette.technicalDrawing || silhouette.frontSketch || silhouette.sketchFile) && (
@@ -820,39 +866,208 @@ export const SilhouetteInductionForm = ({
                 <div>
                   <code className="text-xs font-mono text-muted-foreground">{silhouette.code}</code>
                   <h3 className="font-semibold">{silhouette.name}</h3>
-                  <Badge variant="outline" className="mt-1">{SILHOUETTE_CATEGORY_LABELS[silhouette.category]}</Badge>
+                  <div className="flex gap-2 mt-1">
+                    <Badge variant="outline">{SILHOUETTE_CATEGORY_LABELS[silhouette.category]}</Badge>
+                    {silhouette.subType && <Badge variant="secondary" className="text-xs capitalize">{silhouette.subType}</Badge>}
+                  </div>
                 </div>
               </div>
             </div>
+
             <Separator />
 
-            <div className="space-y-2">
-              <Label><LinkIcon className="inline h-4 w-4 mr-1" /> GGT Pattern File Link *</Label>
-              <Input value={ggtFileLink} onChange={(e) => setGgtFileLink(e.target.value)} placeholder="https://drive.google.com/..." disabled={isViewOnly} />
-            </div>
-
+            {/* Section B — Spec Sheet (Graded Measurements) */}
             {!isViewOnly && (
-              <div className="space-y-2">
-                <Label><ImageIcon className="inline h-4 w-4 mr-1" /> Technical Drawing (Optional)</Label>
-                <SketchUploader value={technicalDrawing} onChange={setTechnicalDrawing} label="technical drawing" />
+              <div className="space-y-3">
+                <h4 className="font-medium flex items-center gap-2"><Ruler className="h-4 w-4" /> Spec Sheet — Graded Measurements</h4>
+                <p className="text-xs text-muted-foreground">Enter measurements for each size (in inches).</p>
+                <div className="overflow-x-auto border border-border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[140px]">Measurement</TableHead>
+                        {SPEC_SHEET_SIZES.map((size) => (
+                          <TableHead key={size} className="text-center min-w-[80px]">Size {size}</TableHead>
+                        ))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(CATEGORY_MEASUREMENTS[silhouette.category] || []).map((field) => (
+                        <TableRow key={field.id}>
+                          <TableCell className="font-medium text-sm">{field.label}</TableCell>
+                          {SPEC_SHEET_SIZES.map((size) => (
+                            <TableCell key={size} className="p-1">
+                              <Input
+                                type="number"
+                                step="0.25"
+                                className="h-8 text-sm text-center"
+                                value={specSheet[size]?.[field.id] || ''}
+                                onChange={(e) => {
+                                  setSpecSheet((prev) => ({
+                                    ...prev,
+                                    [size]: {
+                                      ...prev[size],
+                                      [field.id]: e.target.value,
+                                    },
+                                  }));
+                                }}
+                                placeholder="—"
+                              />
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label><Ruler className="inline h-4 w-4 mr-1" /> Grading Sizes *</Label>
-              <div className="flex flex-wrap gap-2">
-                {GRADING_SIZE_OPTIONS.map((size) => (
-                  <Badge key={size} variant={gradingSizes.includes(size) ? 'default' : 'outline'} className="cursor-pointer" onClick={() => !isViewOnly && toggleSize(size)}>
-                    {size}
-                  </Badge>
-                ))}
+            <Separator />
+
+            {/* Section C — GGT Pattern File */}
+            <div className="space-y-3">
+              <h4 className="font-medium flex items-center gap-2"><LinkIcon className="h-4 w-4" /> GGT Pattern File</h4>
+              <div className="space-y-2">
+                <Label>GGT File Link *</Label>
+                <Input value={ggtFileLink} onChange={(e) => setGgtFileLink(e.target.value)} placeholder="https://drive.google.com/..." disabled={isViewOnly} />
+              </div>
+
+              {!isViewOnly && (
+                <div className="space-y-2">
+                  <Label><ImageIcon className="inline h-4 w-4 mr-1" /> Technical Drawing (Optional)</Label>
+                  <SketchUploader value={technicalDrawing} onChange={setTechnicalDrawing} label="technical drawing" />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>Grading Sizes *</Label>
+                <div className="flex flex-wrap gap-2">
+                  {GRADING_SIZE_OPTIONS.map((size) => (
+                    <Badge key={size} variant={gradingSizes.includes(size) ? 'default' : 'outline'} className="cursor-pointer" onClick={() => !isViewOnly && toggleSize(size)}>
+                      {size}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </div>
 
+            {/* Section D — Construction Categorisation (conditional) */}
+            {['top', 'dress', 'outerwear'].includes(silhouette.category) && !isViewOnly && (
+              <>
+                <Separator />
+                <div className="space-y-4">
+                  <h4 className="font-medium">Construction Categorisation</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Neckline */}
+                    <div className="space-y-2">
+                      <Label>Neckline</Label>
+                      {!isAddingNeckline ? (
+                        <div className="space-y-2">
+                          <Select value={selectedNecklineId} onValueChange={setSelectedNecklineId}>
+                            <SelectTrigger><SelectValue placeholder="Select neckline..." /></SelectTrigger>
+                            <SelectContent>
+                              {necklines.map((nk) => (
+                                <SelectItem key={nk.id} value={nk.id}>{nk.code} — {nk.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button type="button" variant="ghost" size="sm" className="text-xs gap-1" onClick={() => setIsAddingNeckline(true)}>
+                            <Plus className="h-3 w-3" /> Add New Neckline
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Input value={newNecklineName} onChange={(e) => setNewNecklineName(e.target.value)} placeholder="e.g., Mandarin Collar" />
+                          <div className="flex gap-2">
+                            <Button type="button" variant="outline" size="sm" onClick={() => { setIsAddingNeckline(false); setNewNecklineName(''); }}>Cancel</Button>
+                            <Badge variant="secondary" className="text-xs self-center">Will be auto-coded on approval</Badge>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sleeve */}
+                    <div className="space-y-2">
+                      <Label>Sleeve</Label>
+                      {!isAddingSleeve ? (
+                        <div className="space-y-2">
+                          <Select value={selectedSleeveId} onValueChange={setSelectedSleeveId}>
+                            <SelectTrigger><SelectValue placeholder="Select sleeve..." /></SelectTrigger>
+                            <SelectContent>
+                              {sleeves.map((sl) => (
+                                <SelectItem key={sl.id} value={sl.id}>{sl.code} — {sl.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button type="button" variant="ghost" size="sm" className="text-xs gap-1" onClick={() => setIsAddingSleeve(true)}>
+                            <Plus className="h-3 w-3" /> Add New Sleeve
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Input value={newSleeveName} onChange={(e) => setNewSleeveName(e.target.value)} placeholder="e.g., Puff Sleeve" />
+                          <div className="flex gap-2">
+                            <Button type="button" variant="outline" size="sm" onClick={() => { setIsAddingSleeve(false); setNewSleeveName(''); }}>Cancel</Button>
+                            <Badge variant="secondary" className="text-xs self-center">Will be auto-coded on approval</Badge>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
             <Separator />
 
+            {/* Section E — Final Fitting Photos */}
+            {!isViewOnly && (
+              <div className="space-y-3">
+                <h4 className="font-medium flex items-center gap-2"><ImageIcon className="h-4 w-4" /> Final Fitting Photos</h4>
+                <div className="grid grid-cols-3 gap-3">
+                  {fittingPhotos.map((photo, i) => (
+                    <div key={i} className="relative">
+                      <SketchUploader
+                        value={photo}
+                        onChange={(val) => {
+                          if (!val) {
+                            setFittingPhotos((prev) => prev.filter((_, idx) => idx !== i));
+                          } else {
+                            setFittingPhotos((prev) => prev.map((p, idx) => idx === i ? val : p));
+                          }
+                        }}
+                        label="fitting photo"
+                        compact
+                      />
+                    </div>
+                  ))}
+                  <div
+                    onClick={() => setFittingPhotos((prev) => [...prev, ''])}
+                    className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-muted/50 transition-colors aspect-square"
+                  >
+                    <Plus className="h-6 w-6 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground mt-1">Add Photo</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <Separator />
+
+            {/* Section F — Stitching Lead Time & Cost */}
             <div className="space-y-4">
-              <h4 className="font-medium flex items-center gap-2"><Calculator className="h-4 w-4" /> Cost Calculation</h4>
+              <h4 className="font-medium flex items-center gap-2"><Calculator className="h-4 w-4" /> Stitching Lead Time & Cost</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Stitching Lead Time (days)</Label>
+                  <Input type="number" value={stitchingLeadTimeDays} onChange={(e) => setStitchingLeadTimeDays(e.target.value)} placeholder="7" disabled={isViewOnly} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Stitching Cost (PKR) *</Label>
+                  <Input type="number" value={stitchingCost} onChange={(e) => setStitchingCost(e.target.value)} placeholder="850" disabled={isViewOnly} />
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Link Inducted Fabric</Label>
@@ -860,7 +1075,7 @@ export const SilhouetteInductionForm = ({
                     <SelectTrigger><SelectValue placeholder="Select fabric..." /></SelectTrigger>
                     <SelectContent>
                       {inductedFabrics.map((fabric) => (
-                        <SelectItem key={fabric.id} value={fabric.id}>{fabric.fabricName} - Rs. {fabric.technicalSpecs?.costPerMeter}/m</SelectItem>
+                        <SelectItem key={fabric.id} value={fabric.id}>{fabric.fabricName} — PKR {fabric.technicalSpecs?.costPerMeter}/m</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -870,34 +1085,31 @@ export const SilhouetteInductionForm = ({
                   <Input type="number" step="0.1" value={fabricConsumption} onChange={(e) => setFabricConsumption(e.target.value)} placeholder="2.5" disabled={isViewOnly} />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Stitching Cost (Rs.) *</Label>
-                <Input type="number" value={stitchingCost} onChange={(e) => setStitchingCost(e.target.value)} placeholder="850" disabled={isViewOnly} />
-              </div>
 
               {(consumption > 0 || stitching > 0) && (
                 <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Fabric Cost ({consumption}m × Rs. {fabricCostPerMeter})</span>
-                    <span>Rs. {fabricCost.toFixed(0)}</span>
+                    <span className="text-muted-foreground">Fabric Cost ({consumption}m × PKR {fabricCostPerMeter})</span>
+                    <span>PKR {fabricCost.toFixed(0)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Stitching Cost</span>
-                    <span>Rs. {stitching.toFixed(0)}</span>
+                    <span>PKR {stitching.toFixed(0)}</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between font-medium">
                     <span>Total Cost</span>
-                    <span>Rs. {totalCost.toFixed(0)}</span>
+                    <span>PKR {totalCost.toFixed(0)}</span>
                   </div>
                   <div className="flex justify-between text-primary font-semibold">
                     <span>Predicted Selling Price (3.2×)</span>
-                    <span>Rs. {predictedSellingPrice.toFixed(0)}</span>
+                    <span>PKR {predictedSellingPrice.toFixed(0)}</span>
                   </div>
                 </div>
               )}
             </div>
 
+            {/* Rejection reason (if rejected) */}
             {silhouette.status === 'rejected' && silhouette.rejectedReason && (
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
                 <Label className="text-destructive">Rejection Reason</Label>
@@ -905,10 +1117,24 @@ export const SilhouetteInductionForm = ({
               </div>
             )}
 
+            {/* Reject with reason (if not view only) */}
+            {!isViewOnly && (
+              <div className="space-y-2">
+                <Label>Rejection Reason (if rejecting)</Label>
+                <Textarea value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} placeholder="Describe what needs to be revised..." rows={2} />
+              </div>
+            )}
+
+            {/* Section G — Action Buttons */}
             <div className="flex justify-between pt-4">
               <Button variant="outline" onClick={() => onOpenChange(false)}>{isViewOnly ? 'Close' : 'Cancel'}</Button>
               {!isViewOnly && (
-                <Button onClick={handleApprove}><Check className="mr-2 h-4 w-4" /> Approve & Induct</Button>
+                <div className="flex gap-2">
+                  <Button variant="destructive" onClick={handleReject} disabled={!rejectionReason}>
+                    <X className="mr-2 h-4 w-4" /> Reject
+                  </Button>
+                  <Button onClick={handleApprove}><Check className="mr-2 h-4 w-4" /> Approve & Induct</Button>
+                </div>
               )}
             </div>
           </div>

@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Plus, X, IndianRupee } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import {
   ClosureSpecification,
   ClosureType,
@@ -146,7 +146,7 @@ export const ClosureSelector = ({ value, onChange, componentLabel = 'Component' 
                             <div className="flex items-center justify-between gap-4">
                               <span>{acc.name}</span>
                               <span className="text-xs text-muted-foreground">
-                                {acc.quantityAvailable} available • ₹{acc.costPerUnit}/pc
+                                {acc.quantityAvailable} available • PKR {acc.costPerUnit}/pc
                               </span>
                             </div>
                           </SelectItem>

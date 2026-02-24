@@ -37,12 +37,11 @@ import { TechpackCanvas } from '@/components/design/TechpackCanvas';
 import { FabricBlockingPanel, FabricAssignment, FABRIC_COLORS } from '@/components/design/FabricBlockingPanel';
 import {
   silhouetteLibrary,
-  necklineLibrary,
-  sleeveLibrary,
   seamFinishLibrary,
 } from '@/data/libraryData';
+import { useConstructionLibraryStore } from '@/data/constructionLibraryStore';
 import { toast } from 'sonner';
-import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle, CheckCircle2, IndianRupee, Calculator, Palette, PenTool } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Zap, Download, AlertCircle, CheckCircle2, Calculator, Palette, PenTool } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useSampleStore, createSampleFromDesign } from '@/data/sampleStore';
@@ -96,6 +95,7 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
   const { addDesign, getDesignCountByCategory } = useDesignStore();
   const { getFabricsByCollection, getFabricById } = useFabricStore();
   const { getApprovedSilhouettes, calculateSilhouetteCost, getSilhouetteById } = useSilhouetteStore();
+  const { necklines: necklineLibrary, sleeves: sleeveLibrary } = useConstructionLibraryStore();
   const { addSample } = useSampleStore();
   const { currentUser } = useCurrentUser();
   
@@ -1097,30 +1097,26 @@ export const NewDesignForm = ({ open, onOpenChange }: NewDesignFormProps) => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <p className="text-xs text-muted-foreground">Fabric Cost</p>
-                      <p className="font-medium flex items-center">
-                        <IndianRupee className="h-3 w-3" />
-                        {totalCostCalculation.fabricCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      <p className="font-medium">
+                        PKR {totalCostCalculation.fabricCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Stitching Cost</p>
-                      <p className="font-medium flex items-center">
-                        <IndianRupee className="h-3 w-3" />
-                        {totalCostCalculation.stitchingCost.toLocaleString()}
+                      <p className="font-medium">
+                        PKR {totalCostCalculation.stitchingCost.toLocaleString()}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Total Cost</p>
-                      <p className="font-bold flex items-center text-primary">
-                        <IndianRupee className="h-3.5 w-3.5" />
-                        {totalCostCalculation.totalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      <p className="font-bold text-primary">
+                        PKR {totalCostCalculation.totalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Selling Price (3.2x)</p>
-                      <p className="font-bold flex items-center text-primary">
-                        <IndianRupee className="h-3.5 w-3.5" />
-                        {totalCostCalculation.predictedSellingPrice.toLocaleString()}
+                      <p className="font-bold text-primary">
+                        PKR {totalCostCalculation.predictedSellingPrice.toLocaleString()}
                       </p>
                     </div>
                   </div>

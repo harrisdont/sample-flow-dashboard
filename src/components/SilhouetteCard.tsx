@@ -132,7 +132,7 @@ export const SilhouetteCard = ({ silhouette }: SilhouetteCardProps) => {
                   <TooltipTrigger asChild>
                     <div className="flex items-center gap-1 text-muted-foreground">
                       <DollarSign className="h-3 w-3" />
-                      <span>Rs. {costData.stitchingCost}</span>
+                      <span>PKR {costData.stitchingCost}</span>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>Stitching Cost</TooltipContent>
@@ -142,12 +142,12 @@ export const SilhouetteCard = ({ silhouette }: SilhouetteCardProps) => {
               <div className="bg-muted/50 rounded-md p-2 space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Total Cost</span>
-                  <span className="font-medium">Rs. {costData.totalCost.toFixed(0)}</span>
+                   <span className="font-medium">PKR {costData.totalCost.toFixed(0)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Selling Price (3.2x)</span>
                   <span className="font-semibold text-primary">
-                    Rs. {costData.predictedSellingPrice.toFixed(0)}
+                    PKR {costData.predictedSellingPrice.toFixed(0)}
                   </span>
                 </div>
               </div>
