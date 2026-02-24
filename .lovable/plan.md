@@ -1,47 +1,31 @@
 
 
-# Connect "New Collection" (Add New Menu) to the Planning Page's Full Form
+# New Silhouette: Two Different Forms
 
-## Current State
+## The Problem
 
-There are **two separate collection creation forms**:
+The same issue that existed with New Collection exists here. There are **two completely different silhouette creation forms**:
 
-1. **`NewCollectionForm`** (Add New menu) — A simplified dialog with just line, name, GTM strategy, date, Pinterest link, and description. Creates a bare-bones capsule entry.
-2. **`CapsuleCollectionPlanForm`** (Planning page) — The full detailed form inside a Sheet with category design breakdowns, composition settings, fabric requirements, technique selection, moodboard uploads, backwards scheduling timeline, and auto-created fabric entries.
+1. **`NewSilhouetteForm`** (Add New menu) — A bare-bones dialog with collection picker, code, name, category, and description. It **does not even write to the silhouette store** — it just shows a success toast and discards the data.
 
-Both write to the same `useCapsuleStore`, but the Add New version skips all the detailed planning fields, creating an incomplete capsule.
+2. **`SilhouetteInductionForm`** (Design Hub / Sampling page) — The full multi-step workflow with sketch upload (drag-and-drop + URL), designer notes, auto-generated codes, category selection using the proper `SilhouetteCategory` types (`kurta`, `shirt`, `dress`, `pants`, `dupatta`), and writes to `useSilhouetteStore`. It also handles the full lifecycle: pattern development, sample review, approval with grading/costing.
+
+They are not connected at all. The global Add New version is a dead-end that creates nothing.
 
 ## The Fix
 
-Replace the `NewCollectionForm` dialog with a **two-step flow**: first pick the product line, then open the full `CapsuleCollectionPlanForm` in a Sheet — identical to what the planning page does.
+Replace the `NewSilhouetteForm` in the Add New menu with the `SilhouetteInductionForm`, which is the real, functional form.
 
 ### Files to Modify
 
-**`src/components/NewCollectionForm.tsx`**
-- Replace the current simplified dialog with a two-step approach:
-  - **Step 1**: Dialog with just the product line picker (the 9 lines)
-  - **Step 2**: Once a line is selected, close the dialog and open a Sheet containing `CapsuleCollectionPlanForm` with the selected line's data
-- Import `CapsuleCollectionPlanForm`, `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle`
-- Use the same line color mapping from the planning page (`initialProductLines` colors) so the form renders correctly
-- Pass `allocatedDesigns: 0` since the global menu doesn't have planning-page allocation context (the form uses this only as an informational label)
+**`src/components/AddNewMenu.tsx`**
+- Replace the import of `NewSilhouetteForm` with `SilhouetteInductionForm`
+- Replace the rendered `<NewSilhouetteForm>` with `<SilhouetteInductionForm>` (no `silhouette` prop passed, so it opens in "submit" mode for new creation)
 
-### Line Color Data
-
-The `CapsuleCollectionPlanForm` requires a `lineColor` prop. The color mapping currently lives only as local data in `SeasonalCollectionPlanning.tsx`. To avoid duplication, the product lines array in `NewCollectionForm` will be extended with color values matching the planning page:
-
-```
-cottage → bg-fashion-cottage
-classic → bg-fashion-classic
-formals → bg-fashion-formals
-woman   → bg-fashion-woman
-ming    → bg-fashion-ming
-basic   → bg-sky-500
-semi-bridals → bg-rose-400
-leather → bg-amber-600
-regen   → bg-emerald-600
-```
+**`src/components/NewSilhouetteForm.tsx`**
+- Can be deleted entirely — it becomes unused. The `SilhouetteInductionForm` already handles new silhouette creation when no `silhouette` prop is passed.
 
 ### Result
 
-Clicking **Add New → New Collection** from any page opens a line picker, then the exact same detailed capsule planning form used on the Seasonal Planning page — with category breakdowns, fabric requirements, technique selection, scheduling timeline, and auto-created fabric entries.
+Clicking **Add New → New Silhouette** from any page opens the same full induction form used on the Design Hub — with sketch upload, auto-code generation, proper category types, and actual persistence to `useSilhouetteStore`.
 
