@@ -48,6 +48,19 @@ export interface Silhouette {
   
   // Technical drawing
   technicalDrawing?: string;
+
+  // Spec sheet — graded measurements for sizes 8-16
+  specSheet?: Record<string, Record<string, string>>;
+
+  // Categorised construction details
+  necklineId?: string;
+  sleeveId?: string;
+
+  // Final fitting photos
+  fittingPhotos?: string[];
+
+  // Lead time
+  stitchingLeadTimeDays?: number;
   
   // Tracking
   createdAt: Date;
@@ -75,6 +88,7 @@ export const SILHOUETTE_CATEGORY_LABELS: Record<SilhouetteCategory, string> = {
 };
 
 export const GRADING_SIZE_OPTIONS = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
+export const SPEC_SHEET_SIZES = ['8', '10', '12', '14', '16'];
 
 interface SilhouetteStore {
   silhouettes: Record<string, Silhouette>;
@@ -96,6 +110,11 @@ interface SilhouetteStore {
     stitchingCost: number;
     linkedFabricId?: string;
     technicalDrawing?: string;
+    specSheet?: Record<string, Record<string, string>>;
+    necklineId?: string;
+    sleeveId?: string;
+    fittingPhotos?: string[];
+    stitchingLeadTimeDays?: number;
   }) => void;
   rejectSilhouette: (id: string, reason: string) => void;
   
@@ -316,6 +335,11 @@ export const useSilhouetteStore = create<SilhouetteStore>((set, get) => ({
           stitchingCost: data.stitchingCost,
           linkedFabricId: data.linkedFabricId,
           technicalDrawing: data.technicalDrawing,
+          specSheet: data.specSheet,
+          necklineId: data.necklineId,
+          sleeveId: data.sleeveId,
+          fittingPhotos: data.fittingPhotos,
+          stitchingLeadTimeDays: data.stitchingLeadTimeDays,
           approvedAt: now,
           updatedAt: now,
         },

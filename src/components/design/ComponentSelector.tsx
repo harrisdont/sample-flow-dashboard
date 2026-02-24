@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { AlertCircle, IndianRupee, Calculator, CheckCircle2, Plus, X } from 'lucide-react';
+import { AlertCircle, Calculator, CheckCircle2, Plus, X } from 'lucide-react';
 import { useSilhouetteStore, Silhouette, SilhouetteCategory } from '@/data/silhouetteStore';
 import { FabricEntry } from '@/data/fabricStore';
 import { FabricInductionForm } from '@/components/FabricInductionForm';
@@ -257,7 +257,7 @@ export const ComponentSelector = ({
                     <span>{fabric.fabricName}</span>
                     {fabric.technicalSpecs?.costPerMeter && (
                       <span className="text-xs text-muted-foreground">
-                        ₹{fabric.technicalSpecs.costPerMeter}/m
+                        PKR {fabric.technicalSpecs.costPerMeter}/m
                       </span>
                     )}
                   </div>
@@ -299,7 +299,7 @@ export const ComponentSelector = ({
                         <span>{fabric.fabricName}</span>
                         {fabric.technicalSpecs?.costPerMeter && (
                           <span className="text-xs text-muted-foreground">
-                            ₹{fabric.technicalSpecs.costPerMeter}/m
+                            PKR {fabric.technicalSpecs.costPerMeter}/m
                           </span>
                         )}
                       </div>
@@ -336,24 +336,21 @@ export const ComponentSelector = ({
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div>
               <span className="text-muted-foreground">Fabric:</span>
-              <span className="ml-2 font-medium flex items-center">
-                <IndianRupee className="h-3 w-3" />
-                {costCalculation.fabricCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              <span className="ml-2 font-medium">
+                PKR {costCalculation.fabricCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </span>
             </div>
             <div>
               <span className="text-muted-foreground">Stitching:</span>
-              <span className="ml-2 font-medium flex items-center">
-                <IndianRupee className="h-3 w-3" />
-                {costCalculation.stitchingCost.toLocaleString()}
+              <span className="ml-2 font-medium">
+                PKR {costCalculation.stitchingCost.toLocaleString()}
               </span>
             </div>
           </div>
           <div className="flex justify-between items-center pt-2 border-t border-border">
             <span className="text-sm font-medium">Total</span>
-            <span className="font-bold flex items-center text-primary">
-              <IndianRupee className="h-3.5 w-3.5" />
-              {costCalculation.totalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            <span className="font-bold text-primary">
+              PKR {costCalculation.totalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
             </span>
           </div>
         </div>
