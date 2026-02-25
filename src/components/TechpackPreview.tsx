@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { ImageIcon } from 'lucide-react';
 import {
   silhouetteLibrary,
   necklineLibrary,
@@ -32,13 +33,11 @@ interface TechpackPreviewProps {
   additionalNotes: string;
   fastTrack: boolean;
   fastTrackReason: string;
-  // New enhanced fabric specs
   colorId?: string;
   printClassification?: PrintClassification;
   recommendedSPI?: number;
   ironingInstructions?: IroningInstruction;
   handlingNotes?: string;
-  // Canvas annotations
   annotatedDrawingUrl?: string;
   fabricLegend?: {
     number: number;
@@ -46,6 +45,9 @@ interface TechpackPreviewProps {
     color: string;
     componentType: string;
   }[];
+  // New professional techpack fields
+  sketchViews?: { front?: string; back?: string; left?: string; right?: string };
+  constructionCallouts?: { label: string; description: string }[];
 }
 
 export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
@@ -70,6 +72,8 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
       handlingNotes,
       annotatedDrawingUrl,
       fabricLegend,
+      sketchViews,
+      constructionCallouts,
     },
     ref
   ) => {
@@ -143,8 +147,28 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
                 </div>
               </div>
               
-              {/* Technical Drawings - Show annotated version if available */}
-              {(annotatedDrawingUrl || silhouetteData?.technicalDrawing) && (
+              {/* Technical Drawings - 4-view grid or annotated or fallback */}
+              {sketchViews ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">4-View Technical Sketch</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(['front', 'back', 'left', 'right'] as const).map(view => (
+                      <div key={view} className="border border-border rounded-lg overflow-hidden">
+                        <div className="bg-muted/30 px-2 py-1 border-b border-border">
+                          <p className="text-xs font-medium text-muted-foreground capitalize">{view} View</p>
+                        </div>
+                        <div className="aspect-square flex items-center justify-center p-3 bg-background/50">
+                          {sketchViews[view] ? (
+                            <img src={sketchViews[view]} alt={`${view} view`} className="max-w-full max-h-full object-contain" />
+                          ) : (
+                            <ImageIcon className="h-6 w-6 text-muted-foreground/30" />
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (annotatedDrawingUrl || silhouetteData?.technicalDrawing) ? (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">
                     {annotatedDrawingUrl ? 'Annotated Technical Drawing' : 'Technical Drawings'}
@@ -153,27 +177,15 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
                   {annotatedDrawingUrl ? (
                     <div className="space-y-3">
                       <div className="bg-background/50 rounded border border-border p-4">
-                        <img
-                          src={annotatedDrawingUrl}
-                          alt="Annotated Technical Drawing"
-                          className="w-full h-auto object-contain"
-                        />
+                        <img src={annotatedDrawingUrl} alt="Annotated Technical Drawing" className="w-full h-auto object-contain" />
                       </div>
-                      
-                      {/* Fabric Legend */}
                       {fabricLegend && fabricLegend.length > 0 && (
                         <div className="space-y-2">
                           <p className="text-xs font-medium text-muted-foreground">Fabric Placement Legend</p>
                           <div className="flex flex-wrap gap-2">
                             {fabricLegend.map((item) => (
-                              <div
-                                key={item.number}
-                                className="flex items-center gap-2 px-2 py-1 bg-muted/50 rounded text-xs"
-                              >
-                                <div
-                                  className="w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-xs"
-                                  style={{ backgroundColor: item.color }}
-                                >
+                              <div key={item.number} className="flex items-center gap-2 px-2 py-1 bg-muted/50 rounded text-xs">
+                                <div className="w-5 h-5 rounded-full flex items-center justify-center text-white font-bold text-xs" style={{ backgroundColor: item.color }}>
                                   {item.number}
                                 </div>
                                 <span className="font-medium">{item.fabricName}</span>
@@ -189,25 +201,42 @@ export const TechpackPreview = forwardRef<HTMLDivElement, TechpackPreviewProps>(
                       <div className="space-y-2">
                         <p className="text-xs text-center text-muted-foreground font-medium">Front View</p>
                         <div className="aspect-square bg-background/50 rounded border border-border p-4 flex items-center justify-center">
-                          <img
-                            src={silhouetteData?.technicalDrawing}
-                            alt={`${silhouetteData?.name} - Front`}
-                            className="w-full h-full object-contain"
-                          />
+                          <img src={silhouetteData?.technicalDrawing} alt={`${silhouetteData?.name} - Front`} className="w-full h-full object-contain" />
                         </div>
                       </div>
                       <div className="space-y-2">
                         <p className="text-xs text-center text-muted-foreground font-medium">Back View</p>
                         <div className="aspect-square bg-background/50 rounded border border-border p-4 flex items-center justify-center">
-                          <img
-                            src={silhouetteData?.technicalDrawing}
-                            alt={`${silhouetteData?.name} - Back`}
-                            className="w-full h-full object-contain"
-                          />
+                          <img src={silhouetteData?.technicalDrawing} alt={`${silhouetteData?.name} - Back`} className="w-full h-full object-contain" />
                         </div>
                       </div>
                     </div>
                   )}
+                </div>
+              ) : null}
+
+              {/* Construction Callouts */}
+              {constructionCallouts && constructionCallouts.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Construction Callouts</p>
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-muted/50">
+                          <th className="text-left px-3 py-1.5 font-semibold w-12 border-b border-border">Label</th>
+                          <th className="text-left px-3 py-1.5 font-semibold border-b border-border">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {constructionCallouts.map((c, i) => (
+                          <tr key={i} className={i % 2 === 0 ? '' : 'bg-muted/20'}>
+                            <td className="px-3 py-1.5 font-bold text-primary border-b border-border">{c.label}</td>
+                            <td className="px-3 py-1.5 border-b border-border">{c.description}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>

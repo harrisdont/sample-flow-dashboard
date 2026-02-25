@@ -54,6 +54,64 @@ export interface TechpackAnnotations {
   createdAt: Date;
 }
 
+// 4-View sketches
+export interface SketchViews {
+  front?: string;
+  back?: string;
+  left?: string;
+  right?: string;
+}
+
+export interface ConstructionCallout {
+  label: string;
+  description: string;
+}
+
+export interface GradedMeasurement {
+  label: string;
+  pointOfMeasurement: string;
+  grade: number;
+  tolMinus: number;
+  tolPlus: number;
+  values: Record<string, number>;
+}
+
+export interface GradedSpecSheet {
+  sampleSize: string;
+  sizeRange: string;
+  measurements: GradedMeasurement[];
+}
+
+export interface BodySizeEntry {
+  label: string;
+  measurement: string;
+  values: Record<string, number>;
+}
+
+export interface PatternLayout {
+  pieceName: string;
+  imageUrl?: string;
+}
+
+export interface ArtworkPlacement {
+  artworkType: string;
+  width: string;
+  height: string;
+  angle: string;
+  notes?: string;
+  placementView?: 'front' | 'back' | 'left' | 'right';
+}
+
+export interface BOMItem {
+  item: string;
+  description: string;
+  supplier?: string;
+  unitCost?: number;
+  quantity?: number;
+  unit?: string;
+  totalCost?: number;
+}
+
 export interface Design {
   id: string;
   collectionId: string;
@@ -104,6 +162,15 @@ export interface Design {
   // Production additions
   productionNotes?: ProductionNote[];
   ggtFiles?: GGTFile[];
+
+  // Professional techpack fields
+  sketchViews?: SketchViews;
+  constructionCallouts?: ConstructionCallout[];
+  gradedSpecSheet?: GradedSpecSheet;
+  bodySizeChart?: BodySizeEntry[];
+  patternLayouts?: PatternLayout[];
+  artworkPlacements?: ArtworkPlacement[];
+  billOfMaterials?: BOMItem[];
 }
 
 interface DesignStore {
@@ -161,6 +228,70 @@ const mockDesigns: Record<string, Design> = {
     productionNotes: [
       { id: 'pn-001', text: 'Neckline depth reduced by 1cm per director review on Dec 3. Update pattern accordingly.', department: 'design', addedBy: 'Ayesha Khan', addedAt: '2025-12-03T14:22:00Z' },
       { id: 'pn-002', text: 'Confirm multihead thread colour before bulk run — reference swatch #EMB-042 Ivory Gold.', department: 'embroidery', addedBy: 'Embroidery Lead', addedAt: '2025-12-10T10:05:00Z' },
+    ],
+    // Professional techpack data
+    constructionCallouts: [
+      { label: 'A', description: 'CF closure — 4 hole sew-through buttons, self-fabric covered, 18mm' },
+      { label: 'B', description: 'Back yoke — flat-felled seam, double needle topstitch at 3mm' },
+      { label: 'C', description: 'Side hem vent — 15cm split with gota kinari trim on inner edge' },
+      { label: 'D', description: 'Sleeve cuff — 2 inch organza lace, roll-hemmed edge, gathered into band' },
+      { label: 'E', description: 'Neckline — round neck with 1.5 inch gota kinari border, bias-cut facing' },
+      { label: 'F', description: 'Shoulder drop — 2cm extended shoulder, reinforced with cotton tape' },
+      { label: 'G', description: 'Bottom hem — 1 inch blind hem stitch, French seam finish on inner' },
+    ],
+    gradedSpecSheet: {
+      sampleSize: '6',
+      sizeRange: '0 – 14',
+      measurements: [
+        { label: 'A', pointOfMeasurement: '1/2 Chest width 2cm below armhole', grade: 2.5, tolMinus: 1, tolPlus: 1, values: { '0': 50.3, '2': 52.8, '4': 55.3, '6': 57.8, '8': 60.3, '10': 62.8, '12': 65.3, '14': 67.8 } },
+        { label: 'B', pointOfMeasurement: '1/2 Waist width (seam to seam)', grade: 2.5, tolMinus: 1, tolPlus: 1, values: { '0': 44.5, '2': 47.0, '4': 49.5, '6': 52.0, '8': 54.5, '10': 57.0, '12': 59.5, '14': 62.0 } },
+        { label: 'C', pointOfMeasurement: '1/2 Hip width 20cm below waist', grade: 2.5, tolMinus: 1, tolPlus: 1, values: { '0': 52.0, '2': 54.5, '4': 57.0, '6': 59.5, '8': 62.0, '10': 64.5, '12': 67.0, '14': 69.5 } },
+        { label: 'D', pointOfMeasurement: 'CB length from nape to hem', grade: 1.0, tolMinus: 0.5, tolPlus: 0.5, values: { '0': 98.0, '2': 99.0, '4': 100.0, '6': 101.0, '8': 102.0, '10': 103.0, '12': 104.0, '14': 105.0 } },
+        { label: 'E', pointOfMeasurement: 'Shoulder width (seam to seam)', grade: 1.0, tolMinus: 0.5, tolPlus: 0.5, values: { '0': 37.0, '2': 38.0, '4': 39.0, '6': 40.0, '8': 41.0, '10': 42.0, '12': 43.0, '14': 44.0 } },
+        { label: 'F', pointOfMeasurement: 'Sleeve length from shoulder point', grade: 1.0, tolMinus: 0.5, tolPlus: 0.5, values: { '0': 42.0, '2': 42.5, '4': 43.0, '6': 43.5, '8': 44.0, '10': 44.5, '12': 45.0, '14': 45.5 } },
+        { label: 'G', pointOfMeasurement: '1/2 Armhole depth (straight)', grade: 0.5, tolMinus: 0.5, tolPlus: 0.5, values: { '0': 21.0, '2': 21.5, '4': 22.0, '6': 22.5, '8': 23.0, '10': 23.5, '12': 24.0, '14': 24.5 } },
+        { label: 'H', pointOfMeasurement: '1/2 Upper arm width (bicep level)', grade: 1.5, tolMinus: 0.5, tolPlus: 0.5, values: { '0': 16.5, '2': 18.0, '4': 19.5, '6': 21.0, '8': 22.5, '10': 24.0, '12': 25.5, '14': 27.0 } },
+        { label: 'I', pointOfMeasurement: 'Neck opening width (straight across)', grade: 0.5, tolMinus: 0.3, tolPlus: 0.3, values: { '0': 17.0, '2': 17.5, '4': 18.0, '6': 18.5, '8': 19.0, '10': 19.5, '12': 20.0, '14': 20.5 } },
+        { label: 'J', pointOfMeasurement: 'Front neck drop from HPS', grade: 0.3, tolMinus: 0.3, tolPlus: 0.3, values: { '0': 9.0, '2': 9.3, '4': 9.6, '6': 9.9, '8': 10.2, '10': 10.5, '12': 10.8, '14': 11.1 } },
+        { label: 'K', pointOfMeasurement: 'Hem circumference (full)', grade: 5.0, tolMinus: 1.5, tolPlus: 1.5, values: { '0': 120.0, '2': 125.0, '4': 130.0, '6': 135.0, '8': 140.0, '10': 145.0, '12': 150.0, '14': 155.0 } },
+        { label: 'L', pointOfMeasurement: 'Slit length from hem', grade: 0, tolMinus: 0.5, tolPlus: 0.5, values: { '0': 15.0, '2': 15.0, '4': 15.0, '6': 15.0, '8': 15.0, '10': 15.0, '12': 15.0, '14': 15.0 } },
+      ],
+    },
+    bodySizeChart: [
+      { label: 'A', measurement: 'Bust', values: { '0': 79, '2': 84, '4': 89, '6': 94, '8': 99, '10': 104, '12': 109, '14': 114 } },
+      { label: 'B', measurement: 'Waist', values: { '0': 61, '2': 66, '4': 71, '6': 76, '8': 81, '10': 86, '12': 91, '14': 96 } },
+      { label: 'C', measurement: 'Hip', values: { '0': 86, '2': 91, '4': 96, '6': 101, '8': 106, '10': 111, '12': 116, '14': 121 } },
+      { label: 'D', measurement: 'Bicep', values: { '0': 25.5, '2': 27, '4': 28.5, '6': 30, '8': 31.5, '10': 33, '12': 34.5, '14': 36 } },
+      { label: 'E', measurement: 'Shoulder Width', values: { '0': 37, '2': 38, '4': 39, '6': 40, '8': 41, '10': 42, '12': 43, '14': 44 } },
+      { label: 'F', measurement: 'Neck Circumference', values: { '0': 34, '2': 35, '4': 36, '6': 37, '8': 38, '10': 39, '12': 40, '14': 41 } },
+      { label: 'G', measurement: 'Arm Length', values: { '0': 55, '2': 55.5, '4': 56, '6': 56.5, '8': 57, '10': 57.5, '12': 58, '14': 58.5 } },
+      { label: 'H', measurement: 'Back Length (Nape to Waist)', values: { '0': 38, '2': 38.5, '4': 39, '6': 39.5, '8': 40, '10': 40.5, '12': 41, '14': 41.5 } },
+      { label: 'I', measurement: 'Torso Length', values: { '0': 72, '2': 73, '4': 74, '6': 75, '8': 76, '10': 77, '12': 78, '14': 79 } },
+    ],
+    patternLayouts: [
+      { pieceName: 'Front panel — main body' },
+      { pieceName: 'Back panel — main body' },
+      { pieceName: 'Left sleeve long (3/4)' },
+      { pieceName: 'Right sleeve long (3/4)' },
+      { pieceName: 'Sleeve cuff band (×2)' },
+      { pieceName: 'Neckline facing — bias cut' },
+      { pieceName: 'Side panel (×2)' },
+      { pieceName: 'Back yoke' },
+      { pieceName: 'Hem vent reinforcement (×2)' },
+      { pieceName: 'Collar band — self fabric' },
+    ],
+    artworkPlacements: [
+      { artworkType: 'Multihead Embroidery', width: '41cm', height: '52.3cm', angle: '0°', placementView: 'front', notes: 'Center front panel, 8cm below neckline' },
+      { artworkType: 'Multihead Embroidery', width: '15cm', height: '38cm', angle: '0°', placementView: 'back', notes: 'Center back yoke, aligned with shoulder seam' },
+      { artworkType: 'Gota Kinari Border', width: '1.5 inch strip', height: 'Full perimeter', angle: '0°', placementView: 'front', notes: 'Neckline and bottom hem' },
+    ],
+    billOfMaterials: [
+      { item: 'Main Fabric', description: 'Cotton Lawn 60s — Ivory', supplier: 'Nishat Mills', unitCost: 850, quantity: 3.5, unit: 'meters', totalCost: 2975 },
+      { item: 'Lining Fabric', description: 'Cotton Cambric — Ivory', supplier: 'Nishat Mills', unitCost: 420, quantity: 2.0, unit: 'meters', totalCost: 840 },
+      { item: 'Gota Kinari', description: '1.5 inch Gold Gota Border — ref GK-22', supplier: 'Karachi Trim House', unitCost: 180, quantity: 4.5, unit: 'meters', totalCost: 810 },
+      { item: 'Organza Lace', description: '2 inch Organza Lace — Ivory', supplier: 'Karachi Trim House', unitCost: 120, quantity: 1.5, unit: 'meters', totalCost: 180 },
+      { item: 'Invisible Zipper', description: '7cm YKK Invisible Zip — Ivory', supplier: 'YKK Pakistan', unitCost: 65, quantity: 1, unit: 'pieces', totalCost: 65 },
+      { item: 'Embroidery Thread', description: 'Ivory Gold — ref #EMB-042', supplier: 'Anchor Threads', unitCost: 45, quantity: 6, unit: 'spools', totalCost: 270 },
     ],
   },
   'design-cs3024': {
