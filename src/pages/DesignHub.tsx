@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { MainNav } from '@/components/MainNav';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { NotificationBell } from '@/components/alerts/NotificationBell';
@@ -56,7 +57,7 @@ import { EmbroideryTechnique } from '@/types/sample';
 const DesignHub = () => {
   const { currentUser, getUsersByLine } = useCurrentUser();
   const { tasks, getTasksByAssignee } = useTaskStore();
-  const { getDesignCountByCategory } = useDesignStore();
+  const { getDesignCountByCategory, getDesignsByCollection } = useDesignStore();
   const { capsules } = useCapsuleStore();
   const { samples } = useSampleStore();
   const { fabrics } = useFabricStore();
@@ -336,6 +337,44 @@ const DesignHub = () => {
                                   </div>
                                 </div>
                               );
+                            })()}
+
+                            {/* Designs with Review Techpack links */}
+                            {(() => {
+                              const collectionDesigns = getDesignsByCollection(collection.id);
+                              if (collectionDesigns.length === 0) return null;
+                              return (
+                                <div className="mt-3 p-3 rounded-lg bg-muted/50">
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                                    Designs ({collectionDesigns.length})
+                                  </p>
+                                  <div className="space-y-1.5">
+                                    {collectionDesigns.map(d => (
+                                      <div key={d.id} className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <span className="text-xs font-medium truncate">{d.silhouetteId}</span>
+                                          <Badge variant="outline" className="text-xs capitalize shrink-0">
+                                            {d.category}
+                                          </Badge>
+                                        </div>
+                                        {d.status === 'approved' ? (
+                                          <Link to={`/techpack-preview/${d.id}`}>
+                                            <Badge className="bg-primary/10 text-primary border-primary/30 text-xs gap-1 cursor-pointer hover:bg-primary/20">
+                                              <CheckCircle2 className="h-3 w-3" /> Approved
+                                            </Badge>
+                                          </Link>
+                                        ) : (
+                                          <Link to={`/techpack-preview/${d.id}`}>
+                                            <Button variant="outline" size="sm" className="h-6 text-xs gap-1">
+                                              <ArrowRight className="h-3 w-3" /> Review Techpack
+                                            </Button>
+                                          </Link>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                               );
                             })()}
                           </div>
                         </CardContent>

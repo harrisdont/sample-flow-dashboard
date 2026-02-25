@@ -182,6 +182,7 @@ interface DesignStore {
   getDesignCountByCategory: (collectionId: string) => Record<string, number>;
   addProductionNote: (designId: string, note: Omit<ProductionNote, 'id' | 'addedAt'>) => void;
   addGGTFile: (designId: string, file: Omit<GGTFile, 'id' | 'addedAt'>) => void;
+  approveDesign: (id: string) => void;
 }
 
 // ─── Mock design data seeded for development ───────────────────────────────
@@ -487,8 +488,29 @@ export const useDesignStore = create<DesignStore>((set, get) => ({
       },
     };
   }),
-}));
 
+  approveDesign: (id) => set((state) => {
+    const design = state.designs[id];
+    if (!design) return state;
+    const approvalNote: ProductionNote = {
+      id: `pnote-approve-${Date.now()}`,
+      text: 'Design approved for production',
+      department: 'design',
+      addedBy: 'System',
+      addedAt: new Date().toISOString(),
+    };
+    return {
+      designs: {
+        ...state.designs,
+        [id]: {
+          ...design,
+          status: 'approved',
+          productionNotes: [...(design.productionNotes || []), approvalNote],
+        },
+      },
+    };
+  }),
+}));
 // Helper to map silhouette category to design category
 export const mapSilhouetteToCategory = (silhouetteCategory: string): Design['category'] => {
   const categoryMap: Record<string, Design['category']> = {

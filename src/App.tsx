@@ -15,7 +15,7 @@ import SourcingDashboard from "./pages/SourcingDashboard";
 import SamplingFloorDashboard from "./pages/SamplingFloorDashboard";
 import ProductionPage from "./pages/ProductionPage";
 import ScanPage from "./pages/ScanPage";
-
+import TechpackPreviewPage from "./pages/TechpackPreviewPage";
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -36,6 +36,7 @@ const App = () => (
             <Route path="/sampling" element={<Sampling />} />
             <Route path="/production" element={<ProductionPage />} />
             <Route path="/scan" element={<ScanPage />} />
+            <Route path="/techpack-preview/:designId" element={<TechpackPreviewPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
