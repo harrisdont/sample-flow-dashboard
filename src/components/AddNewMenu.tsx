@@ -6,15 +6,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, FileText, Layout, FolderOpen } from 'lucide-react';
+import { Plus, FileText, Layout, FolderOpen, Paintbrush } from 'lucide-react';
 import { NewDesignForm } from './NewDesignForm';
 import { SilhouetteInductionForm } from './SilhouetteInductionForm';
 import { NewCollectionForm } from './NewCollectionForm';
+import { NewArtworkForm } from './NewArtworkForm';
 
 export const AddNewMenu = () => {
   const [designFormOpen, setDesignFormOpen] = useState(false);
   const [silhouetteFormOpen, setSilhouetteFormOpen] = useState(false);
   const [collectionFormOpen, setCollectionFormOpen] = useState(false);
+  const [artworkFormOpen, setArtworkFormOpen] = useState(false);
 
   return (
     <>
@@ -38,12 +40,17 @@ export const AddNewMenu = () => {
             <FolderOpen className="h-4 w-4" />
             New Collection
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setArtworkFormOpen(true)} className="gap-2 cursor-pointer">
+            <Paintbrush className="h-4 w-4" />
+            New Artwork
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
       <NewDesignForm open={designFormOpen} onOpenChange={setDesignFormOpen} />
       <SilhouetteInductionForm open={silhouetteFormOpen} onOpenChange={setSilhouetteFormOpen} />
       <NewCollectionForm open={collectionFormOpen} onOpenChange={setCollectionFormOpen} />
+      <NewArtworkForm open={artworkFormOpen} onOpenChange={setArtworkFormOpen} />
     </>
   );
 };

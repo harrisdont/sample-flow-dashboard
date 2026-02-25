@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { SilhouetteLibrary } from '@/components/SilhouetteLibrary';
 import { SilhouetteInductionForm } from '@/components/SilhouetteInductionForm';
@@ -22,6 +23,8 @@ import { FabricInbox } from '@/components/FabricInbox';
 import { FabricInductionForm } from '@/components/FabricInductionForm';
 import { FabricStatusBoard } from '@/components/FabricStatusBoard';
 import { AccessoriesManager } from '@/components/AccessoriesManager';
+import { NewArtworkForm } from '@/components/NewArtworkForm';
+import { useArtworkStore } from '@/data/artworkStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useFabricStore } from '@/data/fabricStore';
 import { 
@@ -40,6 +43,7 @@ import {
   Scissors,
   Layers,
   Package,
+  Paintbrush,
 } from 'lucide-react';
 import { format, differenceInDays, isToday, isTomorrow } from 'date-fns';
 import { STATUS_CONFIG, PRIORITY_CONFIG } from '@/types/task';
@@ -56,11 +60,15 @@ const DesignHub = () => {
   const { capsules } = useCapsuleStore();
   const { samples } = useSampleStore();
   const { fabrics } = useFabricStore();
+  const { artworks } = useArtworkStore();
   const [activeTab, setActiveTab] = useState('collections');
   
   const [isAddSilhouetteOpen, setIsAddSilhouetteOpen] = useState(false);
   const [isAddFabricOpen, setIsAddFabricOpen] = useState(false);
+  const [isAddArtworkOpen, setIsAddArtworkOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [artworkTypeFilter, setArtworkTypeFilter] = useState<string>('all');
+  const [artworkTechFilter, setArtworkTechFilter] = useState<string>('all');
 
   // Get collections for user's assigned lines
   const myCollections = useMemo((): CapsuleCollection[] => {
@@ -236,6 +244,10 @@ const DesignHub = () => {
                 <TabsTrigger value="fabric-inbox" className="gap-1">
                   <Package className="h-3 w-3" />
                   Fabric Inbox
+                </TabsTrigger>
+                <TabsTrigger value="artwork" className="gap-1">
+                  <Paintbrush className="h-3 w-3" />
+                  Artwork
                 </TabsTrigger>
               </TabsList>
 
@@ -491,6 +503,121 @@ const DesignHub = () => {
               <TabsContent value="fabric-inbox">
                 <FabricInbox />
               </TabsContent>
+
+              {/* Artwork Tab */}
+              <TabsContent value="artwork" className="space-y-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Artwork Library</h3>
+                  <Button size="sm" className="gap-2" onClick={() => setIsAddArtworkOpen(true)}>
+                    <Plus className="h-4 w-4" />
+                    Add Artwork
+                  </Button>
+                </div>
+
+                {/* Filter bar */}
+                <div className="flex flex-wrap gap-2">
+                  {['all', 'print', 'motif'].map(t => (
+                    <Button
+                      key={t}
+                      variant={artworkTypeFilter === t ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setArtworkTypeFilter(t)}
+                      className="capitalize"
+                    >
+                      {t === 'all' ? 'All Types' : t}
+                    </Button>
+                  ))}
+                  <Select value={artworkTechFilter} onValueChange={setArtworkTechFilter}>
+                    <SelectTrigger className="w-[140px] h-8">
+                      <SelectValue placeholder="Technique" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Techniques</SelectItem>
+                      <SelectItem value="digital">Digital</SelectItem>
+                      <SelectItem value="rotary">Rotary</SelectItem>
+                      <SelectItem value="screen">Screen</SelectItem>
+                      <SelectItem value="multihead">Multihead</SelectItem>
+                      <SelectItem value="pakki">Pakki</SelectItem>
+                      <SelectItem value="ari-dori">Ari-Dori</SelectItem>
+                      <SelectItem value="adda">Adda</SelectItem>
+                      <SelectItem value="cottage">Cottage</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Artwork cards grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {Object.values(artworks)
+                    .filter(a => artworkTypeFilter === 'all' || a.type === artworkTypeFilter)
+                    .filter(a => artworkTechFilter === 'all' || a.technique === artworkTechFilter)
+                    .map(artwork => {
+                      const collection = capsules[artwork.collectionId];
+                      return (
+                        <Card key={artwork.id}>
+                          <CardContent className="p-4 space-y-3">
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={artwork.type === 'print' ? 'default' : 'secondary'} className="capitalize">
+                                    {artwork.type}
+                                  </Badge>
+                                  <Badge variant="outline" className="capitalize">{artwork.technique}</Badge>
+                                  {artwork.layout && (
+                                    <Badge variant="outline" className="capitalize text-xs">{artwork.layout}</Badge>
+                                  )}
+                                </div>
+                                <p className="text-sm font-medium">{artwork.designerName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {collection?.collectionName || 'Unknown Collection'} • {collection?.lineName || ''}
+                                </p>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  'text-xs capitalize',
+                                  artwork.status === 'approved' && 'border-[hsl(var(--status-complete))] text-[hsl(var(--status-complete))]',
+                                  artwork.status === 'submitted' && 'border-[hsl(var(--status-in-progress))] text-[hsl(var(--status-in-progress))]',
+                                )}
+                              >
+                                {artwork.status}
+                              </Badge>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {artwork.components.map(c => (
+                                <Badge key={c} variant="secondary" className="text-xs capitalize">{c}</Badge>
+                              ))}
+                              {artwork.placements.map(p => (
+                                <Badge key={p} variant="outline" className="text-xs capitalize">{p.replace('-', ' ')}</Badge>
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                              <span>{artwork.colourways.length} colourway{artwork.colourways.length !== 1 ? 's' : ''}</span>
+                              {artwork.artworkFileLink && <span>• File linked</span>}
+                              {artwork.butterPaperId && <span>• Butter paper linked</span>}
+                            </div>
+                            {artwork.notes && (
+                              <p className="text-xs text-muted-foreground line-clamp-2">{artwork.notes}</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  {Object.values(artworks)
+                    .filter(a => artworkTypeFilter === 'all' || a.type === artworkTypeFilter)
+                    .filter(a => artworkTechFilter === 'all' || a.technique === artworkTechFilter)
+                    .length === 0 && (
+                    <Card className="col-span-full">
+                      <CardContent className="py-12 text-center">
+                        <Paintbrush className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <h3 className="font-medium">No Artworks Found</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Add your first artwork or adjust filters
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </TabsContent>
             </Tabs>
           </div>
 
@@ -555,6 +682,7 @@ const DesignHub = () => {
       </div>
 
       <SilhouetteInductionForm open={isAddSilhouetteOpen} onOpenChange={setIsAddSilhouetteOpen} />
+      <NewArtworkForm open={isAddArtworkOpen} onOpenChange={setIsAddArtworkOpen} />
       
       <Dialog open={isAddFabricOpen} onOpenChange={setIsAddFabricOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
