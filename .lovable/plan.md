@@ -1,224 +1,103 @@
 
 
-# Upgrade Production Techpack to Match Reference Format
+# Enrich Production Techpack — Missing Fields & Multi-Piece Component Sections
 
-## Analysis — What the Reference Techpack Has That Ours Lacks
+## What's Missing from the Current Techpack
 
-The uploaded Excel techpack is a 6-page professional spec document. Here is what it contains versus our current `ProductionTechpack.tsx`:
+The current Section 1 (Product Detail) shows 12 rows but is missing several critical fields that exist elsewhere in the data model. Additionally, there is no dedicated section for accompanying pieces in 2pc/3pc designs.
 
-```text
-REFERENCE TECHPACK (6 pages)              OUR CURRENT TECHPACK (10 sections)
-─────────────────────────────             ──────────────────────────────────
-1. Product Detail Header                  1. Identity Block ✓ (similar)
-   + 4-View Sketch (Front/Back/           2. Design Sketch ✗ (only annotated canvas,
-     Left/Right)                              no structured 4-view grid)
+### Fields to Add to Product Detail Header (Section 1)
 
-2. Graded Spec Sheet                      3. Specification Sheet ✗ (flat key-value,
-   - Label (A-X)                              no graded table, no tolerances,
-   - Point of Measurement                     no grade increments)
-   - Grade increment
-   - Tolerance -/+
-   - All sizes (0-14) in columns
-   + Pattern UV Layouts                   — MISSING entirely
+| Field | Source | Currently Shown? |
+|-------|--------|-----------------|
+| Fabric Name | `fabricStore` → `fabricName` | No |
+| Fabric Code | `fabricStore` → `id` | No |
+| Fabric Colour | `fabricStore` → `colorId` / `colorPaletteStore` | No |
+| SPI | `fabricStore` → `technicalSpecs.recommendedSPI` | No |
+| Ironing Instructions | `fabricStore` → `technicalSpecs.ironingInstructions` | No |
+| Seam Style | `design.seamFinish` | No (only in fallback spec sheet) |
+| Product Category | `design.category` (1pc/2pc/3pc etc.) | No |
+| GTM Date | `capsuleCollectionData` → `targetInStoreDate` | No |
+| Silhouette Name | `sample.silhouetteName` | Yes |
+| Silhouette Code | `sample.silhouetteCode` | Yes (as "Style Code") |
+| Neckline Name & Code | `constructionLibraryStore` via `design.neckline` / silhouette `necklineId` | No |
+| Sleeve Name & Code | `constructionLibraryStore` via `design.sleeve` / silhouette `sleeveId` | No |
+| Order Qty | `sample.totalQty` | No |
 
-3. Body Size Charts                       — MISSING (body measurements for
-   (body reference measurements)             grading reference)
+### New Section Needed: Multi-Piece Component Details
 
-4. Construction Callouts                  — MISSING (labeled A-G annotations
-   (labeled construction details             describing closures, yokes, hems,
-    on 4-view drawings)                      pleats, cuffs, collars)
+For 2pc/3pc/lehenga-set/saree-set designs, the techpack must include a **dedicated section** showing each accompanying piece (Shirt, Lowers, Dupatta, Lehenga, Choli, etc.) with:
+- Component silhouette name & sketch
+- Component fabric name, code, colour
+- Component-specific trims & closures
+- Component-specific techpack annotations/drawings
 
-5. Artworks Page                          7. Embroidery/Artwork ✗ (just a badge,
-   - Type, Width, Height, Angle              no dimensions, no placement views)
-   - 4-view placement diagrams
-
-6. Bill of Materials (BOM)                — MISSING entirely
-
-—                                         4. GGT Pattern Files ✓ (KEEP - ref doesn't have)
-—                                         5. Fabric Specifications ✓ (KEEP)
-—                                         6. Trims & Closures ✓ (KEEP)
-—                                         8. Lining & Slip ✓ (KEEP)
-—                                         9. Stage Gate Tracker ✓ (KEEP)
-—                                         10. Production Notes ✓ (KEEP)
-```
-
-## Plan — Merge Both Into a Comprehensive Techpack
-
-We keep all 10 existing sections and add the 5 missing sections from the reference. The final techpack will have **15 sections**, reorganised in a logical production-document order.
-
-### New Section Order
-
-| # | Section | Source | Status |
-|---|---------|--------|--------|
-| 1 | Product Detail Header (Brand, Style, Season, Sample Size, Size Range, Date) | Reference Page 1 | **NEW** — restructure Identity block |
-| 2 | 4-View Technical Sketch (Front, Back, Left, Right grid) | Reference Pages 1 & 4 | **UPGRADE** existing section 2 |
-| 3 | Construction Callouts (labeled A-G with descriptions) | Reference Page 4 | **NEW** |
-| 4 | Graded Spec Sheet (table: Label, Measurement, Grade, Tol±, sizes 0-14) | Reference Page 2 | **NEW** — replace flat spec sheet |
-| 5 | Body Size Charts (reference body measurements per size) | Reference Page 3 | **NEW** |
-| 6 | Pattern UV Layouts (pattern piece thumbnails with labels) | Reference Page 2 | **NEW** |
-| 7 | Fabric Specifications | Existing section 5 | KEEP |
-| 8 | Trims & Closures | Existing section 6 | KEEP |
-| 9 | Artwork Placement (type, dimensions, angle, 4-view placement) | Reference Page 5 | **UPGRADE** existing section 7 |
-| 10 | Bill of Materials (BOM) | Reference Page 6 | **NEW** |
-| 11 | Lining & Slip Configuration | Existing section 8 | KEEP |
-| 12 | GGT / Pattern Files | Existing section 4 | KEEP |
-| 13 | Care & Handling | Existing (inside spec sheet) | KEEP (extracted to own section) |
-| 14 | Stage Approval Gate Tracker | Existing section 9 | KEEP |
-| 15 | Production Change Notes | Existing section 10 | KEEP |
+This data lives in `design.components` (a map of `ComponentSpec` objects, each with `silhouetteId`, `fabricId`, `trims`, `closures`).
 
 ---
 
-### Detailed Changes
+## Detailed Changes
 
-#### 1. Data Model — `src/data/designStore.ts`
+### 1. `src/components/production/ProductionTechpack.tsx`
 
-Add new fields to the `Design` interface:
+**Section 1 — Product Detail Header: Add ~12 new rows**
 
-```ts
-// 4-View sketches
-sketchViews?: {
-  front?: string;   // image URL or data URL
-  back?: string;
-  left?: string;
-  right?: string;
-};
+The component already imports `useFabricStore` and has `fabric` and `specs`. It also needs:
+- Import `useCapsuleStore` to fetch GTM date from the collection
+- Import `useConstructionLibraryStore` to resolve neckline/sleeve names+codes
+- Import `useSilhouetteStore` to resolve component silhouette details
 
-// Construction callouts (labeled annotations)
-constructionCallouts?: {
-  label: string;     // "A", "B", "C" etc.
-  description: string; // "CF closure 4 hole sew-through buttons..."
-}[];
+New rows to add to the header table after the existing 12:
+- **Fabric Name** — `fabric?.fabricName`
+- **Fabric Code** — `fabric?.id`
+- **Colour** — resolve from `colorPaletteStore` using `fabric?.colorId`, or fall back to `sample.colour`
+- **SPI** — `specs?.recommendedSPI` + " SPI"
+- **Ironing** — `IRONING_INSTRUCTION_LABELS[specs?.ironingInstructions]`
+- **Seam Style** — `design?.seamFinish`
+- **Product Category** — map `design?.category` to human label ("1 Piece", "2 Piece", "3 Piece", "Lehenga Set", etc.)
+- **GTM Date** — look up capsule collection by `design?.collectionId` and format `targetInStoreDate`
+- **Neckline** — look up from `constructionLibraryStore` by `silhouette.necklineId` or `design?.neckline`, show "Name (Code)"
+- **Sleeve** — same pattern as neckline
+- **Order Qty** — `sample.totalQty`
 
-// Graded spec sheet (full professional format)
-gradedSpecSheet?: {
-  sampleSize: string;  // "6"
-  sizeRange: string;   // "0 - 14"
-  measurements: {
-    label: string;           // "A"
-    pointOfMeasurement: string; // "1/2 Chest width 2cm below armhole"
-    grade: number;           // 2.5
-    tolMinus: number;        // 1
-    tolPlus: number;         // 1
-    values: Record<string, number>; // { "0": 50.3, "2": 52.8, ... "14": 67.8 }
-  }[];
-};
+**New Section (insert after Section 2, before Construction Callouts) — "Component Pieces"**
 
-// Body size chart (grading reference)
-bodySizeChart?: {
-  label: string;       // "A"
-  measurement: string; // "Bicep"
-  values: Record<string, number>; // { "0": 25.5, "2": 26, ... }
-}[];
+Only rendered when `design?.category` is `twoPiece`, `threePiece`, `lehenga-set`, or `saree-set` AND `design?.components` has entries.
 
-// Pattern UV layouts
-patternLayouts?: {
-  pieceName: string;   // "Left sleeve long (interior)"
-  imageUrl?: string;   // optional image
-}[];
+For each component (shirt, lowers, dupatta, lehenga, choli, saree, blouse):
+- **Sub-header card** with component name badge
+- **Silhouette info**: resolve `componentSpec.silhouetteId` from `silhouetteStore` → show name, code, front/back sketch images
+- **Fabric info**: resolve `componentSpec.fabricId` from `fabricStore` → show name, composition, colour
+- **Trims & closures** for that specific component
+- **Techpack annotation** if the component has custom modifications (neckline, sleeve, seam finish overrides)
 
-// Artwork placement details
-artworkPlacements?: {
-  artworkType: string;  // "Digital Print"
-  width: string;        // "41cm"
-  height: string;       // "52.3cm"
-  angle: string;        // "(0°)"
-  notes?: string;
-  placementView?: 'front' | 'back' | 'left' | 'right';
-}[];
+This gives production a complete picture of every piece in a single document.
 
-// Bill of Materials
-billOfMaterials?: {
-  item: string;         // "Main Fabric"
-  description: string;  // "Cotton Lawn 60s"
-  supplier?: string;
-  unitCost?: number;    // PKR
-  quantity?: number;
-  unit?: string;        // "meters", "pieces", "yards"
-  totalCost?: number;   // PKR
-}[];
-```
+### 2. No data model changes needed
 
-Update mock designs with sample data for at least one design (e.g., `design-ws2046`) so the new sections are immediately visible.
+All required data already exists across the stores:
+- `designStore` → `Design.components`, `category`, `seamFinish`, `neckline`, `sleeve`
+- `fabricStore` → `FabricEntry` with `fabricName`, `id`, `colorId`, `technicalSpecs`
+- `capsuleCollectionData` → `CapsuleCollection.targetInStoreDate`
+- `silhouetteStore` → `Silhouette` with `necklineId`, `sleeveId`, sketches
+- `constructionLibraryStore` → neckline/sleeve name+code lookup
+- `colorPaletteStore` → colour name resolution
 
-#### 2. `src/components/production/ProductionTechpack.tsx` — Major Overhaul
-
-Restructure into 15 sections. Key new UI elements:
-
-**Section 1 — Product Detail Header**
-- Structured like the reference: Brand row, Style Name, Style Code, Season/Collection, Sample Size, Size Range, Date
-- Clean bordered table layout instead of scattered key-value pairs
-
-**Section 2 — 4-View Technical Sketch**
-- 2x2 grid: Front View | Back View / Left View | Right View
-- Falls back to annotated canvas if 4-view not available
-- Each quadrant has a label and bordered image area
-
-**Section 3 — Construction Callouts**
-- Table with Label (A, B, C...) and Description columns
-- Matches the reference Page 4 callout format
-- Only renders if `constructionCallouts` exists on the design
-
-**Section 4 — Graded Spec Sheet**
-- Full HTML table matching the reference format exactly:
-  - Columns: Label | Point of Measurement (cm) | Grade | Tol - | Tol + | Size 0 | 2 | 4 | 6 | 8 | 10 | 12 | 14
-  - Each row is a measurement point (A through X)
-- Falls back to the existing flat spec sheet if graded data is not available
-- Horizontally scrollable on mobile
-
-**Section 5 — Body Size Charts**
-- Table: Label | Measurement | sizes 0-14
-- Reference body measurements (Bicep, Chest, Waist, etc.)
-- Only renders if `bodySizeChart` data exists
-
-**Section 6 — Pattern UV Layouts**
-- Grid of labeled pattern piece cards (e.g., "Left sleeve long (interior)", "Back straight", "Collar flap standard")
-- Each card has a placeholder image area and the piece name
-- Only renders if `patternLayouts` data exists
-
-**Section 9 — Artwork Placement (upgraded)**
-- Table: Artwork | Type | Width | Height | Angle | Notes
-- Below the table, a 4-view grid showing placement positions
-- Pulls data from the artwork store if linked, plus any `artworkPlacements` on the design
-
-**Section 10 — Bill of Materials**
-- Table: Item | Description | Supplier | Unit Cost (PKR) | Qty | Unit | Total (PKR)
-- Summary row with total cost
-- Only renders if `billOfMaterials` data exists
-
-All existing sections (Fabric Specs, Trims, Lining, GGT Files, Stage Tracker, Production Notes) remain unchanged in content, just renumbered.
-
-#### 3. `src/components/TechpackPreview.tsx` — Align Design-Time Preview
-
-Update the design-time techpack preview to also show the 4-view grid and construction callouts when available, so designers see a preview that matches the final production format. Add props for the new fields. This is a lighter update — just add the 4-view grid and callout table if data is passed in.
-
-#### 4. Mock Data Seeding
-
-Seed `design-ws2046` with:
-- `gradedSpecSheet` with 10-12 measurement rows matching the reference format
-- `constructionCallouts` with 5-7 entries (A-G)
-- `bodySizeChart` with 9 body measurements
-- `patternLayouts` with 8-10 piece names
-- `artworkPlacements` with 3-4 entries
-- `billOfMaterials` with 5-6 line items
-- `sketchViews` left as undefined (placeholder areas will show)
-
-This ensures the techpack renders a full professional document immediately for demo purposes.
+The techpack just needs to **fetch and display** this data.
 
 ---
 
-### File Summary
+## File Summary
 
 | File | Action |
 |------|--------|
-| `src/data/designStore.ts` | **Edit** — Add new interface fields + seed mock data |
-| `src/components/production/ProductionTechpack.tsx` | **Edit** — Major restructure to 15 sections |
-| `src/components/TechpackPreview.tsx` | **Edit** — Add 4-view grid + callouts to design preview |
+| `src/components/production/ProductionTechpack.tsx` | **Edit** — Expand Section 1 with ~12 new header rows; add new "Component Pieces" section for multi-piece designs; add imports for capsule store, silhouette store, construction library store, color palette store |
 
-### Technical Notes
+## Technical Notes
 
-- All costs in BOM use PKR (consistent with prior currency migration)
-- The graded spec sheet table uses `overflow-x-auto` for horizontal scrolling on smaller screens
-- Pattern UV layouts are visual placeholders — in production, these would link to actual pattern images from the GGT files
-- The 4-view sketch grid gracefully degrades: if only front/back sketches exist (from silhouette induction), it shows a 1x2 grid; if all 4 views exist, it shows a 2x2 grid
-- Construction callouts auto-label with sequential letters (A, B, C...) matching the reference format
+- Category label mapping: `{ onePiece: '1 Piece', twoPiece: '2 Piece', threePiece: '3 Piece', dupattas: 'Dupatta', lowers: 'Lowers', 'lehenga-set': 'Lehenga Set', 'saree-set': 'Saree Set' }`
+- Component pieces section uses a bordered card per component with an internal 2-column grid for details + sketch image
+- All data is fetched reactively from Zustand stores — no API calls, no new state
+- The component pieces section number shifts all subsequent sections by 1 (Construction Callouts becomes Section 4, etc.)
+- Neckline/sleeve lookup: first try `constructionLibraryStore` by `silhouette.necklineId`, then fall back to `design.neckline` as plain text
 
