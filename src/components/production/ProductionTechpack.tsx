@@ -1,15 +1,19 @@
 import { useState } from 'react';
 import { Sample } from '@/types/sample';
-import { useDesignStore, Design, ProductionNote, GGTFile } from '@/data/designStore';
+import { useDesignStore, Design, ProductionNote, GGTFile, ComponentSpec } from '@/data/designStore';
 import { useFabricStore, IRONING_INSTRUCTION_LABELS, COMPONENT_TYPE_LABELS } from '@/data/fabricStore';
+import { useColorPaletteStore } from '@/data/colorPaletteStore';
+import { useCapsuleStore } from '@/data/capsuleCollectionData';
+import { useConstructionLibraryStore } from '@/data/constructionLibraryStore';
+import { useSilhouetteStore } from '@/data/silhouetteStore';
 import { getFullProductionPath, DECORATION_STAGE_LABELS, getTechniqueLabel } from '@/lib/embroideryWorkflow';
+import { format, parseISO } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format, parseISO } from 'date-fns';
 import {
   CheckCircle2,
   XCircle,
@@ -56,6 +60,11 @@ export const ProductionTechpack = ({ sample, onBack }: ProductionTechpackProps) 
   const addProductionNote = useDesignStore(s => s.addProductionNote);
   const addGGTFile = useDesignStore(s => s.addGGTFile);
   const fabrics = useFabricStore(s => s.fabrics);
+  const getColorById = useColorPaletteStore(s => s.getColorById);
+  const capsules = useCapsuleStore(s => s.capsules);
+  const necklines = useConstructionLibraryStore(s => s.necklines);
+  const sleeves = useConstructionLibraryStore(s => s.sleeves);
+  const silhouetteStore = useSilhouetteStore(s => s.silhouettes);
 
   const design: Design | undefined = Object.values(designs).find(
     d => d.collectionId === sample.collectionName || d.silhouetteId === sample.silhouetteCode
@@ -63,6 +72,47 @@ export const ProductionTechpack = ({ sample, onBack }: ProductionTechpackProps) 
 
   const fabric = fabrics.find(f => f.collectionName === sample.collectionName);
   const specs = fabric?.technicalSpecs;
+
+  // Resolve colour from fabric's colorId
+  const fabricColor = fabric?.colorId ? getColorById(fabric.colorId) : undefined;
+  const colourDisplay = fabricColor ? `${fabricColor.name} (${fabricColor.hexCode})` : sample.colour;
+
+  // GTM date from capsule collection
+  const capsule = design?.collectionId ? capsules[design.collectionId] : undefined;
+  const gtmDate = capsule?.targetInStoreDate ? format(capsule.targetInStoreDate, 'dd MMM yyyy') : '—';
+
+  // Resolve silhouette for neckline/sleeve IDs
+  const silhouette = design?.silhouetteId ? silhouetteStore[design.silhouetteId] : undefined;
+
+  // Neckline lookup
+  const resolveNeckline = () => {
+    const nkId = silhouette?.necklineId;
+    if (nkId) {
+      const found = necklines.find(n => n.id === nkId);
+      if (found) return `${found.name} (${found.code})`;
+    }
+    return design?.neckline || '—';
+  };
+
+  // Sleeve lookup
+  const resolveSleeve = () => {
+    const slId = silhouette?.sleeveId;
+    if (slId) {
+      const found = sleeves.find(s => s.id === slId);
+      if (found) return `${found.name} (${found.code})`;
+    }
+    return design?.sleeve || '—';
+  };
+
+  // Category label mapping
+  const CATEGORY_LABELS: Record<string, string> = {
+    onePiece: '1 Piece', twoPiece: '2 Piece', threePiece: '3 Piece',
+    dupattas: 'Dupatta', lowers: 'Lowers', 'lehenga-set': 'Lehenga Set', 'saree-set': 'Saree Set',
+  };
+
+  // Check if multi-piece
+  const isMultiPiece = design?.category && ['twoPiece', 'threePiece', 'lehenga-set', 'saree-set'].includes(design.category);
+  const componentEntries = design?.components ? Object.entries(design.components) as [string, ComponentSpec][] : [];
 
   // Note form state
   const [noteText, setNoteText] = useState('');
@@ -190,7 +240,17 @@ export const ProductionTechpack = ({ sample, onBack }: ProductionTechpackProps) 
                   <HeaderRow label="Designer" value={sample.designerName} />
                   <HeaderRow label="Line" value={sample.lineName} />
                   <HeaderRow label="Target Date" value={sample.targetDate} />
-                  <HeaderRow label="Colour" value={sample.colour} />
+                  <HeaderRow label="Colour" value={colourDisplay} />
+                  <HeaderRow label="Fabric Name" value={fabric?.fabricName || '—'} />
+                  <HeaderRow label="Fabric Code" value={fabric?.id || '—'} />
+                  <HeaderRow label="SPI" value={specs?.recommendedSPI != null ? `${specs.recommendedSPI} SPI` : '—'} />
+                  <HeaderRow label="Ironing Instructions" value={specs?.ironingInstructions ? IRONING_INSTRUCTION_LABELS[specs.ironingInstructions] : '—'} />
+                  <HeaderRow label="Seam Style" value={design?.seamFinish || '—'} />
+                  <HeaderRow label="Product Category" value={design?.category ? CATEGORY_LABELS[design.category] || design.category : '—'} />
+                  <HeaderRow label="GTM Date" value={gtmDate} />
+                  <HeaderRow label="Neckline" value={resolveNeckline()} />
+                  <HeaderRow label="Sleeve" value={resolveSleeve()} />
+                  <HeaderRow label="Order Qty" value={sample.totalQty ? String(sample.totalQty) : '—'} />
                 </tbody>
               </table>
             </div>
@@ -239,6 +299,92 @@ export const ProductionTechpack = ({ sample, onBack }: ProductionTechpackProps) 
             )}
           </CardContent>
         </Card>
+
+        {/* ─── 2b. COMPONENT PIECES (Multi-Piece Designs) ─── */}
+        {isMultiPiece && componentEntries.length > 0 && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Component Pieces — {CATEGORY_LABELS[design!.category] || design!.category}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {componentEntries.map(([compName, compSpec]) => {
+                const compSilhouette = compSpec.silhouetteId ? silhouetteStore[compSpec.silhouetteId] : undefined;
+                const compFabric = fabrics.find(f => f.id === compSpec.fabricId || f.id === compSpec.inductedFabricId);
+                const compColor = compFabric?.colorId ? getColorById(compFabric.colorId) : undefined;
+                const COMP_NAME_LABELS: Record<string, string> = {
+                  shirt: 'Shirt / Kameez', lowers: 'Lowers / Shalwar', dupatta: 'Dupatta',
+                  slip: 'Slip', lining: 'Lining', lehenga: 'Lehenga', choli: 'Choli',
+                  saree: 'Saree', blouse: 'Blouse',
+                };
+
+                return (
+                  <div key={compName} className="border border-border rounded-lg overflow-hidden">
+                    <div className="bg-muted/40 px-4 py-2 border-b border-border">
+                      <Badge variant="secondary" className="text-xs">{COMP_NAME_LABELS[compName] || compName}</Badge>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+                      {/* Details column */}
+                      <div className="space-y-3 text-sm">
+                        {compSilhouette && (
+                          <>
+                            <Field label="Silhouette" value={`${compSilhouette.name} (${compSilhouette.code})`} />
+                            {compSilhouette.category && <Field label="Category" value={compSilhouette.category} />}
+                          </>
+                        )}
+                        {compFabric && (
+                          <>
+                            <Field label="Fabric Name" value={compFabric.fabricName} />
+                            <Field label="Fabric Code" value={compFabric.id} />
+                            <Field label="Composition" value={compFabric.fabricComposition} />
+                            <Field label="Colour" value={compColor ? `${compColor.name} (${compColor.hexCode})` : '—'} />
+                          </>
+                        )}
+                        {compSpec.customModifications && (
+                          <>
+                            {compSpec.customModifications.neckline && <Field label="Neckline" value={compSpec.customModifications.neckline} />}
+                            {compSpec.customModifications.sleeve && <Field label="Sleeve" value={compSpec.customModifications.sleeve} />}
+                            {compSpec.customModifications.seamFinish && <Field label="Seam Finish" value={compSpec.customModifications.seamFinish} />}
+                          </>
+                        )}
+                        {compSpec.trims && compSpec.trims.length > 0 && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Trims</p>
+                            <div className="flex flex-wrap gap-1">
+                              {compSpec.trims.map((t, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {t.trimType?.name || t.trimId} — {t.placements?.join(', ')}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {compSpec.closures && compSpec.closures.length > 0 && (
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">Closures</p>
+                            <div className="flex flex-wrap gap-1">
+                              {compSpec.closures.map((c, i) => (
+                                <Badge key={i} variant="outline" className="text-xs">
+                                  {c.type} — {c.placement}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {/* Sketch column */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <SketchQuadrant label="Front" src={compSilhouette?.frontSketch || compSilhouette?.technicalDrawing} />
+                        <SketchQuadrant label="Back" src={compSilhouette?.backSketch} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
 
         {/* ─── 3. CONSTRUCTION CALLOUTS ─── */}
         {design?.constructionCallouts && design.constructionCallouts.length > 0 && (
