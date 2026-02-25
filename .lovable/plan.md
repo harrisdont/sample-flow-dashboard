@@ -1,89 +1,120 @@
 
 
-# Enrich Production Techpack — Missing Fields & Multi-Piece Component Sections
+# Editable Techpack Preview with Approve for Production
 
-## What's Missing from the Current Techpack
+## Overview
 
-The current Section 1 (Product Detail) shows 12 rows but is missing several critical fields that exist elsewhere in the data model. Additionally, there is no dedicated section for accompanying pieces in 2pc/3pc designs.
-
-### Fields to Add to Product Detail Header (Section 1)
-
-| Field | Source | Currently Shown? |
-|-------|--------|-----------------|
-| Fabric Name | `fabricStore` → `fabricName` | No |
-| Fabric Code | `fabricStore` → `id` | No |
-| Fabric Colour | `fabricStore` → `colorId` / `colorPaletteStore` | No |
-| SPI | `fabricStore` → `technicalSpecs.recommendedSPI` | No |
-| Ironing Instructions | `fabricStore` → `technicalSpecs.ironingInstructions` | No |
-| Seam Style | `design.seamFinish` | No (only in fallback spec sheet) |
-| Product Category | `design.category` (1pc/2pc/3pc etc.) | No |
-| GTM Date | `capsuleCollectionData` → `targetInStoreDate` | No |
-| Silhouette Name | `sample.silhouetteName` | Yes |
-| Silhouette Code | `sample.silhouetteCode` | Yes (as "Style Code") |
-| Neckline Name & Code | `constructionLibraryStore` via `design.neckline` / silhouette `necklineId` | No |
-| Sleeve Name & Code | `constructionLibraryStore` via `design.sleeve` / silhouette `sleeveId` | No |
-| Order Qty | `sample.totalQty` | No |
-
-### New Section Needed: Multi-Piece Component Details
-
-For 2pc/3pc/lehenga-set/saree-set designs, the techpack must include a **dedicated section** showing each accompanying piece (Shirt, Lowers, Dupatta, Lehenga, Choli, etc.) with:
-- Component silhouette name & sketch
-- Component fabric name, code, colour
-- Component-specific trims & closures
-- Component-specific techpack annotations/drawings
-
-This data lives in `design.components` (a map of `ComponentSpec` objects, each with `silhouetteId`, `fabricId`, `trims`, `closures`).
+Create a new `/techpack-preview/:designId` page that renders the full 15-section production techpack in an **editable mode**. Users can inline-edit key fields (spec sheet measurements, BOM costs, construction callouts, notes, etc.), review the complete document, then either **Download PDF** or **Approve for Production**. Approval updates the design status to `approved` and is reflected on the Design Hub.
 
 ---
 
-## Detailed Changes
+## Architecture
 
-### 1. `src/components/production/ProductionTechpack.tsx`
+```text
+DesignHub (collections tab)
+  └── "Review Techpack" button per design card
+        └── /techpack-preview/:designId
+              ├── Editable ProductionTechpack (readOnly=false)
+              │   ├── Section 1: Product Detail — editable fields (seam style, notes, etc.)
+              │   ├── Section 4: Graded Spec Sheet — editable measurement values
+              │   ├── Section 10: BOM — editable costs/qty
+              │   ├── Section 3: Construction Callouts — add/edit/remove rows
+              │   └── All other sections: read-only display
+              ├── "Download PDF" button (html2canvas + jspdf)
+              └── "Approve for Production" button → updates design.status to 'approved'
+```
 
-**Section 1 — Product Detail Header: Add ~12 new rows**
+---
 
-The component already imports `useFabricStore` and has `fabric` and `specs`. It also needs:
-- Import `useCapsuleStore` to fetch GTM date from the collection
-- Import `useConstructionLibraryStore` to resolve neckline/sleeve names+codes
-- Import `useSilhouetteStore` to resolve component silhouette details
+## File Changes
 
-New rows to add to the header table after the existing 12:
-- **Fabric Name** — `fabric?.fabricName`
-- **Fabric Code** — `fabric?.id`
-- **Colour** — resolve from `colorPaletteStore` using `fabric?.colorId`, or fall back to `sample.colour`
-- **SPI** — `specs?.recommendedSPI` + " SPI"
-- **Ironing** — `IRONING_INSTRUCTION_LABELS[specs?.ironingInstructions]`
-- **Seam Style** — `design?.seamFinish`
-- **Product Category** — map `design?.category` to human label ("1 Piece", "2 Piece", "3 Piece", "Lehenga Set", etc.)
-- **GTM Date** — look up capsule collection by `design?.collectionId` and format `targetInStoreDate`
-- **Neckline** — look up from `constructionLibraryStore` by `silhouette.necklineId` or `design?.neckline`, show "Name (Code)"
-- **Sleeve** — same pattern as neckline
-- **Order Qty** — `sample.totalQty`
+### 1. New File: `src/pages/TechpackPreviewPage.tsx`
 
-**New Section (insert after Section 2, before Construction Callouts) — "Component Pieces"**
+A routed page at `/techpack-preview/:designId` that:
+- Reads `designId` from URL params
+- Looks up the `Design` from `useDesignStore` and matches a `Sample` from `useSampleStore`
+- Manages local editable state (cloned from the design record) for:
+  - `gradedSpecSheet.measurements[].values` — each cell is an `<input type="number">`
+  - `billOfMaterials[].unitCost`, `.quantity`, `.totalCost` — inline number inputs with auto-calculated totals
+  - `constructionCallouts` — editable description text, add/remove rows
+  - `additionalNotes` — editable textarea
+  - `seamFinish` — editable text input
+- Renders the techpack in a `ref`-captured div for PDF generation
+- Has a sticky header bar with:
+  - Back button (navigates to `/design-hub`)
+  - Design name + collection
+  - **"Save Changes"** button — calls `updateDesign()` to persist edits
+  - **"Download PDF"** button — captures content via `html2canvas` → `jspdf` multi-page A4
+  - **"Approve for Production"** button — saves all edits, sets `design.status = 'approved'`, shows toast, navigates back to Design Hub
 
-Only rendered when `design?.category` is `twoPiece`, `threePiece`, `lehenga-set`, or `saree-set` AND `design?.components` has entries.
+**Editable vs Read-Only Logic:**
+- Sections that are editable get inline `<Input>` / `<Textarea>` elements replacing the static text
+- A top-level `isEditing` toggle (default: true) lets the user switch between edit mode and preview mode
+- In preview mode, all fields render as static text (same as current ProductionTechpack) — this is what gets captured for PDF
+- PDF generation: temporarily switches to preview mode, waits a tick, captures, then restores
 
-For each component (shirt, lowers, dupatta, lehenga, choli, saree, blouse):
-- **Sub-header card** with component name badge
-- **Silhouette info**: resolve `componentSpec.silhouetteId` from `silhouetteStore` → show name, code, front/back sketch images
-- **Fabric info**: resolve `componentSpec.fabricId` from `fabricStore` → show name, composition, colour
-- **Trims & closures** for that specific component
-- **Techpack annotation** if the component has custom modifications (neckline, sleeve, seam finish overrides)
+**PDF Generation (same libraries already installed):**
+```
+1. Set isEditing = false (switch to preview)
+2. Wait 100ms for re-render
+3. html2canvas(contentRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+4. Calculate A4 page breaks (595.28 × 841.89 pts)
+5. Split canvas into pages, jsPDF.addImage() each
+6. Save as "Techpack_{sampleNumber}_{collection}_{date}.pdf"
+7. Restore isEditing = true
+```
 
-This gives production a complete picture of every piece in a single document.
+### 2. Edit: `src/pages/DesignHub.tsx`
 
-### 2. No data model changes needed
+Add a **"Review Techpack"** button to the collections tab and/or a new column in the design listing. Specifically:
 
-All required data already exists across the stores:
-- `designStore` → `Design.components`, `category`, `seamFinish`, `neckline`, `sleeve`
-- `fabricStore` → `FabricEntry` with `fabricName`, `id`, `colorId`, `technicalSpecs`
-- `capsuleCollectionData` → `CapsuleCollection.targetInStoreDate`
-- `silhouetteStore` → `Silhouette` with `necklineId`, `sleeveId`, sketches
-- `constructionLibraryStore` → neckline/sleeve name+code lookup
-- `colorPaletteStore` → colour name resolution
+- In the `TabsContent value="collections"` section, inside each collection card, add a "Review Techpack" link for each design in that collection
+- Add a new sub-section below the design counts that lists designs with their status and a "Review Techpack" button
+- Uses `<Link to={/techpack-preview/${design.id}}>` to navigate
+- Designs with `status === 'approved'` show a green "Approved" badge instead of the button
 
-The techpack just needs to **fetch and display** this data.
+This surfaces the approval workflow directly within the Design Hub's existing collection view.
+
+### 3. Edit: `src/App.tsx`
+
+Add the new route:
+```
+<Route path="/techpack-preview/:designId" element={<TechpackPreviewPage />} />
+```
+
+### 4. Edit: `src/data/designStore.ts`
+
+No schema changes needed. The existing `updateDesign(id, updates)` method already supports partial updates including `status: 'approved'`. The existing `Design.status` field already has the `'approved'` value in its union type.
+
+Add one new store method for convenience:
+- `approveDesign(id: string)` — sets `status: 'approved'` and adds a production note "Design approved for production" with department `'design'`
+
+---
+
+## Editable Sections Detail
+
+| Section | Editable Fields | Input Type |
+|---------|----------------|------------|
+| 1. Product Detail | Seam Style, Additional Notes | Text input, Textarea |
+| 3. Construction Callouts | Description per row, add/remove rows | Text input + buttons |
+| 4. Graded Spec Sheet | Each measurement value per size, grade, tolerances | Number inputs in table cells |
+| 5. Body Size Charts | Each value per size | Number inputs in table cells |
+| 9. Artwork Placement | Width, Height, Angle, Notes | Text inputs |
+| 10. BOM | Unit Cost, Quantity, Total Cost | Number inputs with auto-calc |
+| 15. Production Notes | Add new notes (already exists) | Textarea + dept selector |
+
+Sections 2, 6, 7, 8, 11, 12, 13, 14 remain **read-only** (they display data from linked stores — silhouette, fabric, trims, etc. — which are edited at their own induction points).
+
+---
+
+## Approve for Production Flow
+
+1. User navigates from Design Hub → "Review Techpack" on a specific design
+2. Page loads with all sections populated, editable fields highlighted with a subtle edit border
+3. User reviews and edits measurements, BOM, callouts as needed
+4. User clicks **"Save Changes"** → `updateDesign()` persists all edits to the store
+5. User clicks **"Approve for Production"** → confirmation dialog → `approveDesign()` → toast "Techpack approved for production" → navigate back to `/design-hub`
+6. On Design Hub, the design now shows an "Approved" badge and the "Review Techpack" button changes to "View Techpack" (still navigable, but page opens in preview-only mode since status is approved)
 
 ---
 
@@ -91,13 +122,18 @@ The techpack just needs to **fetch and display** this data.
 
 | File | Action |
 |------|--------|
-| `src/components/production/ProductionTechpack.tsx` | **Edit** — Expand Section 1 with ~12 new header rows; add new "Component Pieces" section for multi-piece designs; add imports for capsule store, silhouette store, construction library store, color palette store |
+| `src/pages/TechpackPreviewPage.tsx` | **New** — Editable techpack preview + PDF download + approve flow |
+| `src/pages/DesignHub.tsx` | **Edit** — Add "Review Techpack" links per design in collection cards |
+| `src/App.tsx` | **Edit** — Add `/techpack-preview/:designId` route |
+| `src/data/designStore.ts` | **Edit** — Add `approveDesign()` convenience method |
 
 ## Technical Notes
 
-- Category label mapping: `{ onePiece: '1 Piece', twoPiece: '2 Piece', threePiece: '3 Piece', dupattas: 'Dupatta', lowers: 'Lowers', 'lehenga-set': 'Lehenga Set', 'saree-set': 'Saree Set' }`
-- Component pieces section uses a bordered card per component with an internal 2-column grid for details + sketch image
-- All data is fetched reactively from Zustand stores — no API calls, no new state
-- The component pieces section number shifts all subsequent sections by 1 (Construction Callouts becomes Section 4, etc.)
-- Neckline/sleeve lookup: first try `constructionLibraryStore` by `silhouette.necklineId`, then fall back to `design.neckline` as plain text
+- PDF uses `html2canvas` + `jspdf` (both already installed)
+- Editable number inputs use `type="number"` with `step="0.1"` for measurements and `step="1"` for costs
+- The editable state is local (useState) — only persisted on explicit "Save Changes" or "Approve"
+- Auto-calculation: BOM `totalCost = unitCost × quantity`, footer shows sum
+- Construction callout labels auto-increment (A, B, C...) when rows are added
+- Approved designs open in read-only mode (no edit inputs, no approve button)
+- All costs display in PKR
 
