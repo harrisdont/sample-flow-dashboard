@@ -1,176 +1,224 @@
 
 
-# Add New Artwork Module — Print & Motif Induction
+# Upgrade Production Techpack to Match Reference Format
 
-## Overview
+## Analysis — What the Reference Techpack Has That Ours Lacks
 
-This adds a comprehensive artwork induction system with two major categories: **Print** and **Motif**. Both share common fields (collection, designer name, etc.) but diverge into category-specific workflows with nested sub-categories, component selectors, and file link entries for artwork and colourways.
-
-The feature integrates into:
-- The global **Add New** menu (top nav) as "New Artwork"
-- The **Design Hub** as a new "Artwork" tab alongside Silhouettes, Fabrics, etc.
-
----
-
-## Data Architecture
-
-### New Store: `src/data/artworkStore.ts`
+The uploaded Excel techpack is a 6-page professional spec document. Here is what it contains versus our current `ProductionTechpack.tsx`:
 
 ```text
-ArtworkType: 'print' | 'motif'
+REFERENCE TECHPACK (6 pages)              OUR CURRENT TECHPACK (10 sections)
+─────────────────────────────             ──────────────────────────────────
+1. Product Detail Header                  1. Identity Block ✓ (similar)
+   + 4-View Sketch (Front/Back/           2. Design Sketch ✗ (only annotated canvas,
+     Left/Right)                              no structured 4-view grid)
 
-── PRINT ──
-PrintTechnique: 'digital' | 'rotary' | 'screen'
-PrintLayout: 'running' | 'engineered'
+2. Graded Spec Sheet                      3. Specification Sheet ✗ (flat key-value,
+   - Label (A-X)                              no graded table, no tolerances,
+   - Point of Measurement                     no grade increments)
+   - Grade increment
+   - Tolerance -/+
+   - All sizes (0-14) in columns
+   + Pattern UV Layouts                   — MISSING entirely
 
-Running → component: 'shirt' | 'dupatta' | 'lowers'
-Engineered → component + placement:
-  shirt    → front, back, sleeve
-  lowers   → trousers/shalwar, panels-skirt, circle-skirt, saree, gharara
-  dupatta  → stole, square-scarf, 2.5M, 2.75M
+3. Body Size Charts                       — MISSING (body measurements for
+   (body reference measurements)             grading reference)
 
-── MOTIF ──
-MotifTechnique: 'multihead' | 'pakki' | 'ari-dori' | 'adda' | 'cottage'
+4. Construction Callouts                  — MISSING (labeled A-G annotations
+   (labeled construction details             describing closures, yokes, hems,
+    on 4-view drawings)                      pleats, cuffs, collars)
 
-Multihead → layout: 'running' | 'engineered' | 'borders'
-  engineered → select butter paper → auto-fills silhouette name, component, etc.
-  running / borders → manual component selection
+5. Artworks Page                          7. Embroidery/Artwork ✗ (just a badge,
+   - Type, Width, Height, Angle              no dimensions, no placement views)
+   - 4-view placement diagrams
 
-All others (pakki, ari-dori, adda, cottage) → simpler form with component + placement
+6. Bill of Materials (BOM)                — MISSING entirely
+
+—                                         4. GGT Pattern Files ✓ (KEEP - ref doesn't have)
+—                                         5. Fabric Specifications ✓ (KEEP)
+—                                         6. Trims & Closures ✓ (KEEP)
+—                                         8. Lining & Slip ✓ (KEEP)
+—                                         9. Stage Gate Tracker ✓ (KEEP)
+—                                         10. Production Notes ✓ (KEEP)
 ```
 
-**Artwork interface:**
+## Plan — Merge Both Into a Comprehensive Techpack
 
-| Field | Type | Description |
-|-------|------|-------------|
-| id | string | Auto-generated |
-| type | 'print' \| 'motif' | Top-level category |
-| collectionId | string | Linked capsule collection |
-| designerName | string | Who created it |
-| lineId | string | Product line |
-| technique | string | print technique or motif technique |
-| layout | string | running / engineered / borders |
-| component | string | shirt / dupatta / lowers |
-| placement | string | front / back / sleeve / etc. |
-| artworkFileLink | string | Local/network path to artwork file |
-| colourways | { name: string; fileLink: string }[] | Colourway variants with file links |
-| butterPaperId? | string | For multihead engineered — links to approved silhouette |
-| autoFilledDetails? | { silhouetteName, componentName, code } | Auto-populated from butter paper |
-| status | 'draft' \| 'submitted' \| 'approved' | Workflow status |
-| notes | string | Designer notes |
-| createdAt / updatedAt | Date | Timestamps |
+We keep all 10 existing sections and add the 5 missing sections from the reference. The final techpack will have **15 sections**, reorganised in a logical production-document order.
 
-**Store methods:** `addArtwork`, `updateArtwork`, `removeArtwork`, `getArtworkByCollection`, `getArtworkByType`
+### New Section Order
 
-### Mock Data
-
-2-3 seeded artworks (one print-digital-running, one motif-multihead-engineered) linked to existing collections for immediate visibility.
+| # | Section | Source | Status |
+|---|---------|--------|--------|
+| 1 | Product Detail Header (Brand, Style, Season, Sample Size, Size Range, Date) | Reference Page 1 | **NEW** — restructure Identity block |
+| 2 | 4-View Technical Sketch (Front, Back, Left, Right grid) | Reference Pages 1 & 4 | **UPGRADE** existing section 2 |
+| 3 | Construction Callouts (labeled A-G with descriptions) | Reference Page 4 | **NEW** |
+| 4 | Graded Spec Sheet (table: Label, Measurement, Grade, Tol±, sizes 0-14) | Reference Page 2 | **NEW** — replace flat spec sheet |
+| 5 | Body Size Charts (reference body measurements per size) | Reference Page 3 | **NEW** |
+| 6 | Pattern UV Layouts (pattern piece thumbnails with labels) | Reference Page 2 | **NEW** |
+| 7 | Fabric Specifications | Existing section 5 | KEEP |
+| 8 | Trims & Closures | Existing section 6 | KEEP |
+| 9 | Artwork Placement (type, dimensions, angle, 4-view placement) | Reference Page 5 | **UPGRADE** existing section 7 |
+| 10 | Bill of Materials (BOM) | Reference Page 6 | **NEW** |
+| 11 | Lining & Slip Configuration | Existing section 8 | KEEP |
+| 12 | GGT / Pattern Files | Existing section 4 | KEEP |
+| 13 | Care & Handling | Existing (inside spec sheet) | KEEP (extracted to own section) |
+| 14 | Stage Approval Gate Tracker | Existing section 9 | KEEP |
+| 15 | Production Change Notes | Existing section 10 | KEEP |
 
 ---
 
-## UI Component: `src/components/NewArtworkForm.tsx`
+### Detailed Changes
 
-A single-view scrollable dialog (same pattern as the silhouette induction form), `max-w-4xl`.
+#### 1. Data Model — `src/data/designStore.ts`
 
-### Section Flow
+Add new fields to the `Design` interface:
 
-**Section 1 — Common Fields:**
-- Artwork Type toggle: **Print** | **Motif** (large toggle buttons)
-- Collection selector (from capsule store)
-- Product Line (auto-filled from collection, editable)
-- Designer Name (text input)
+```ts
+// 4-View sketches
+sketchViews?: {
+  front?: string;   // image URL or data URL
+  back?: string;
+  left?: string;
+  right?: string;
+};
 
-**Section 2 — Technique Selection (conditional on type):**
+// Construction callouts (labeled annotations)
+constructionCallouts?: {
+  label: string;     // "A", "B", "C" etc.
+  description: string; // "CF closure 4 hole sew-through buttons..."
+}[];
 
-*If Print:*
-- Technique: Digital | Rotary | Screen (radio group)
-- Layout: Running | Engineered (radio group)
+// Graded spec sheet (full professional format)
+gradedSpecSheet?: {
+  sampleSize: string;  // "6"
+  sizeRange: string;   // "0 - 14"
+  measurements: {
+    label: string;           // "A"
+    pointOfMeasurement: string; // "1/2 Chest width 2cm below armhole"
+    grade: number;           // 2.5
+    tolMinus: number;        // 1
+    tolPlus: number;         // 1
+    values: Record<string, number>; // { "0": 50.3, "2": 52.8, ... "14": 67.8 }
+  }[];
+};
 
-*If Motif:*
-- Technique: Multihead | Pakki | Ari-Dori | Adda | Cottage (radio group)
-- If Multihead → Layout: Running | Engineered | Borders (radio group)
+// Body size chart (grading reference)
+bodySizeChart?: {
+  label: string;       // "A"
+  measurement: string; // "Bicep"
+  values: Record<string, number>; // { "0": 25.5, "2": 26, ... }
+}[];
 
-**Section 3 — Component & Placement (conditional on layout):**
+// Pattern UV layouts
+patternLayouts?: {
+  pieceName: string;   // "Left sleeve long (interior)"
+  imageUrl?: string;   // optional image
+}[];
 
-*Running (both print & motif):*
-- Component selector: Shirt | Dupatta | Lowers (checkbox group, multi-select)
+// Artwork placement details
+artworkPlacements?: {
+  artworkType: string;  // "Digital Print"
+  width: string;        // "41cm"
+  height: string;       // "52.3cm"
+  angle: string;        // "(0°)"
+  notes?: string;
+  placementView?: 'front' | 'back' | 'left' | 'right';
+}[];
 
-*Engineered (print):*
-- Component selector: Shirt | Dupatta | Lowers
-- Placement sub-selector (appears after component selection):
-  - Shirt → Front, Back, Sleeve (checkboxes)
-  - Lowers → Trousers/Shalwar, Panels Skirt, Circle Skirt, Saree, Gharara (checkboxes)
-  - Dupatta → Stole, Square Scarf, 2.5M, 2.75M (checkboxes)
+// Bill of Materials
+billOfMaterials?: {
+  item: string;         // "Main Fabric"
+  description: string;  // "Cotton Lawn 60s"
+  supplier?: string;
+  unitCost?: number;    // PKR
+  quantity?: number;
+  unit?: string;        // "meters", "pieces", "yards"
+  totalCost?: number;   // PKR
+}[];
+```
 
-*Engineered (multihead motif):*
-- **Select Butter Paper** dropdown — lists approved silhouettes from `useSilhouetteStore` (filtered to status === 'approved')
-- On selection, auto-fills a read-only summary card showing: Silhouette Name, Code, Category, Sub-type, Component Name, linked fabric
-- Below that, manual placement override if needed
+Update mock designs with sample data for at least one design (e.g., `design-ws2046`) so the new sections are immediately visible.
 
-*Borders (multihead motif):*
-- Component selector same as running
+#### 2. `src/components/production/ProductionTechpack.tsx` — Major Overhaul
 
-**Section 4 — Artwork Files:**
-- **Add Artwork** — text input for file link (local/network path) with a label field
-- **Add Colourway** — repeatable section: colourway name + file link. "Add Another Colourway" button adds rows. Each row has a remove button.
+Restructure into 15 sections. Key new UI elements:
 
-**Section 5 — Notes:**
-- Designer notes textarea
+**Section 1 — Product Detail Header**
+- Structured like the reference: Brand row, Style Name, Style Code, Season/Collection, Sample Size, Size Range, Date
+- Clean bordered table layout instead of scattered key-value pairs
 
-**Section 6 — Actions:**
-- Cancel | Submit Artwork
-- On submit: saves to artwork store, sends notification to design-lead via `useNotificationStore.addNotification()`
+**Section 2 — 4-View Technical Sketch**
+- 2x2 grid: Front View | Back View / Left View | Right View
+- Falls back to annotated canvas if 4-view not available
+- Each quadrant has a label and bordered image area
+
+**Section 3 — Construction Callouts**
+- Table with Label (A, B, C...) and Description columns
+- Matches the reference Page 4 callout format
+- Only renders if `constructionCallouts` exists on the design
+
+**Section 4 — Graded Spec Sheet**
+- Full HTML table matching the reference format exactly:
+  - Columns: Label | Point of Measurement (cm) | Grade | Tol - | Tol + | Size 0 | 2 | 4 | 6 | 8 | 10 | 12 | 14
+  - Each row is a measurement point (A through X)
+- Falls back to the existing flat spec sheet if graded data is not available
+- Horizontally scrollable on mobile
+
+**Section 5 — Body Size Charts**
+- Table: Label | Measurement | sizes 0-14
+- Reference body measurements (Bicep, Chest, Waist, etc.)
+- Only renders if `bodySizeChart` data exists
+
+**Section 6 — Pattern UV Layouts**
+- Grid of labeled pattern piece cards (e.g., "Left sleeve long (interior)", "Back straight", "Collar flap standard")
+- Each card has a placeholder image area and the piece name
+- Only renders if `patternLayouts` data exists
+
+**Section 9 — Artwork Placement (upgraded)**
+- Table: Artwork | Type | Width | Height | Angle | Notes
+- Below the table, a 4-view grid showing placement positions
+- Pulls data from the artwork store if linked, plus any `artworkPlacements` on the design
+
+**Section 10 — Bill of Materials**
+- Table: Item | Description | Supplier | Unit Cost (PKR) | Qty | Unit | Total (PKR)
+- Summary row with total cost
+- Only renders if `billOfMaterials` data exists
+
+All existing sections (Fabric Specs, Trims, Lining, GGT Files, Stage Tracker, Production Notes) remain unchanged in content, just renumbered.
+
+#### 3. `src/components/TechpackPreview.tsx` — Align Design-Time Preview
+
+Update the design-time techpack preview to also show the 4-view grid and construction callouts when available, so designers see a preview that matches the final production format. Add props for the new fields. This is a lighter update — just add the 4-view grid and callout table if data is passed in.
+
+#### 4. Mock Data Seeding
+
+Seed `design-ws2046` with:
+- `gradedSpecSheet` with 10-12 measurement rows matching the reference format
+- `constructionCallouts` with 5-7 entries (A-G)
+- `bodySizeChart` with 9 body measurements
+- `patternLayouts` with 8-10 piece names
+- `artworkPlacements` with 3-4 entries
+- `billOfMaterials` with 5-6 line items
+- `sketchViews` left as undefined (placeholder areas will show)
+
+This ensures the techpack renders a full professional document immediately for demo purposes.
 
 ---
 
-## Integration Points
-
-### 1. `src/components/AddNewMenu.tsx`
-
-Add a fourth menu item:
-```
-<DropdownMenuItem> <Paintbrush icon /> New Artwork </DropdownMenuItem>
-```
-State: `artworkFormOpen` / `setArtworkFormOpen`
-Render: `<NewArtworkForm open={artworkFormOpen} onOpenChange={setArtworkFormOpen} />`
-
-### 2. `src/pages/DesignHub.tsx`
-
-Add a new tab "Artwork" to the existing `TabsList` (after Fabric Inbox):
-```
-<TabsTrigger value="artwork"> <Paintbrush /> Artwork </TabsTrigger>
-```
-
-The `TabsContent` for "artwork" renders:
-- Filter bar: Type (Print/Motif/All), Technique dropdown, Collection dropdown
-- Grid/list of artwork cards showing: type badge, technique, component, collection name, colourway count, status
-- "Add Artwork" button that opens the same `NewArtworkForm`
-
-### 3. Butter Paper Auto-Fill (Multihead Engineered)
-
-When a user selects a butter paper (approved silhouette) in the motif-multihead-engineered flow:
-- Read from `useSilhouetteStore` → filter by `status === 'approved'`
-- Display silhouette details in a read-only card: name, code, category, sub-type, linked fabric, front sketch thumbnail
-- Auto-populate the `autoFilledDetails` field on the artwork record
-
----
-
-## File Summary
+### File Summary
 
 | File | Action |
 |------|--------|
-| `src/data/artworkStore.ts` | **New** — Zustand store with types, interface, mock data |
-| `src/components/NewArtworkForm.tsx` | **New** — Full artwork induction form dialog |
-| `src/components/AddNewMenu.tsx` | **Edit** — Add "New Artwork" menu item |
-| `src/pages/DesignHub.tsx` | **Edit** — Add "Artwork" tab with listing view |
+| `src/data/designStore.ts` | **Edit** — Add new interface fields + seed mock data |
+| `src/components/production/ProductionTechpack.tsx` | **Edit** — Major restructure to 15 sections |
+| `src/components/TechpackPreview.tsx` | **Edit** — Add 4-view grid + callouts to design preview |
 
----
+### Technical Notes
 
-## Technical Notes
-
-- The colourway repeater uses a simple array state with `push` / `filter` operations — same pattern as reference images in the silhouette form.
-- Butter paper selection filters silhouettes by `status === 'approved'` to ensure only fully-approved patterns can be linked.
-- The artwork store is session-only (Zustand without persistence), consistent with all other stores in the project.
-- Notification on submit uses the existing `addNotification` with `recipientRoles: ['design-lead']` and `type: 'task-assigned'`.
-- All monetary references in the artwork form (if any arise) will use PKR.
+- All costs in BOM use PKR (consistent with prior currency migration)
+- The graded spec sheet table uses `overflow-x-auto` for horizontal scrolling on smaller screens
+- Pattern UV layouts are visual placeholders — in production, these would link to actual pattern images from the GGT files
+- The 4-view sketch grid gracefully degrades: if only front/back sketches exist (from silhouette induction), it shows a 1x2 grid; if all 4 views exist, it shows a 2x2 grid
+- Construction callouts auto-label with sequential letters (A, B, C...) matching the reference format
 
