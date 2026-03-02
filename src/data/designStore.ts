@@ -238,6 +238,66 @@ const mockDesigns: Record<string, Design> = {
     additionalNotes: 'Priority for Spring SS26 launch window. Director review required.',
     createdAt: new Date('2025-11-25'),
     status: 'in-progress',
+    textileDesigner: 'Hina Rizvi',
+    distribution: 'Online + Flagship Stores',
+    specialInstructions: 'Ensure colour matching between shirt body and dupatta border before bulk cut. All gota kinari must come from same batch to avoid shade variation. Press with medium heat only — no steam on embroidered areas.',
+    colorways: [
+      {
+        id: 'cw-1',
+        name: 'Colour Way 1',
+        fabrics: {
+          shirt: { fabricCode: 'CLW-60S-IVY', composition: '100% Cotton Lawn 60s', colour: 'Ivory' },
+          lowers: { fabricCode: 'CCM-IVY-01', composition: '100% Cotton Cambric', colour: 'Ivory' },
+          dupatta: { fabricCode: 'OSK-IVY-SH', composition: '100% Organza Silk', colour: 'Ivory Shimmer' },
+          other: { fabricCode: 'CLN-IVY-INT', composition: '100% Cotton Cambric', colour: 'Off White' },
+        },
+        labels: {
+          shirt: ['Brand Label', 'Care Label', 'Size Label'],
+          lowers: ['Size Label', 'Care Label'],
+          dupatta: ['Brand Label'],
+        },
+        trims: {
+          shirt: ['Gota Kinari 1.5"', 'Organza Lace 2"'],
+          lowers: ['Elastic Waistband'],
+          dupatta: ['Gota Kinari 1.5"'],
+        },
+      },
+      {
+        id: 'cw-2',
+        name: 'Colour Way 2',
+        fabrics: {
+          shirt: { fabricCode: 'CLW-60S-DST', composition: '100% Cotton Lawn 60s', colour: 'Dusty Rose' },
+          lowers: { fabricCode: 'CCM-DST-01', composition: '100% Cotton Cambric', colour: 'Dusty Rose' },
+          dupatta: { fabricCode: 'OSK-DST-SH', composition: '100% Organza Silk', colour: 'Rose Shimmer' },
+          other: { fabricCode: 'CLN-DST-INT', composition: '100% Cotton Cambric', colour: 'Blush' },
+        },
+        labels: {
+          shirt: ['Brand Label', 'Care Label', 'Size Label'],
+          lowers: ['Size Label', 'Care Label'],
+          dupatta: ['Brand Label'],
+        },
+        trims: {
+          shirt: ['Gota Kinari 1.5" Rose Gold', 'Organza Lace 2"'],
+          lowers: ['Elastic Waistband'],
+          dupatta: ['Gota Kinari 1.5" Rose Gold'],
+        },
+      },
+    ],
+    componentFinishes: {
+      shirt: { hem: 'Blind hem stitch 1 inch', seams: 'French seam throughout', necklineFinish: 'Bias-cut facing with gota border' },
+      lowers: { hem: 'Double fold hem 1.5 inch', seams: 'Overlock with flat-felled inseam' },
+      dupatta: { hem: 'Hand-rolled hem all edges', seams: 'N/A' },
+    },
+    componentTechniques: {
+      shirt: 'Multihead Embroidery — Front & Back Panel',
+      lowers: 'None',
+      dupatta: 'Gota Kinari Border — All Edges',
+    },
+    componentLabels: {
+      shirt: ['Brand Label — CB neck', 'Care Label — side seam', 'Size Label — CB neck'],
+      lowers: ['Size Label — waistband', 'Care Label — side seam'],
+      dupatta: ['Brand Label — corner tag'],
+    },
     trims: [
       {
         id: 'ta-001',
