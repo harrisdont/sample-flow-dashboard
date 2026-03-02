@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Sample } from '@/types/sample';
-import { useDesignStore, Design, ProductionNote, GGTFile, ComponentSpec } from '@/data/designStore';
+import { useDesignStore, Design, ProductionNote, GGTFile, ComponentSpec, Colorway, ComponentFinish } from '@/data/designStore';
+import { ColorwayFabricMatrix, ComponentFinishesSection, SpecialInstructionsSection } from '@/components/techpack/ColorwayFabricMatrix';
 import { useFabricStore, IRONING_INSTRUCTION_LABELS, COMPONENT_TYPE_LABELS } from '@/data/fabricStore';
 import { useColorPaletteStore } from '@/data/colorPaletteStore';
 import { useCapsuleStore } from '@/data/capsuleCollectionData';
@@ -238,6 +239,7 @@ export const ProductionTechpack = ({ sample, onBack }: ProductionTechpackProps) 
                   <HeaderRow label="Sample Size" value={design?.gradedSpecSheet?.sampleSize || sample.sizes[0] || '—'} />
                   <HeaderRow label="Size Range" value={design?.gradedSpecSheet?.sizeRange || sample.sizes.join(', ')} />
                   <HeaderRow label="Designer" value={sample.designerName} />
+                  <HeaderRow label="Textile Designer" value={design?.textileDesigner || '—'} />
                   <HeaderRow label="Line" value={sample.lineName} />
                   <HeaderRow label="Target Date" value={sample.targetDate} />
                   <HeaderRow label="Colour" value={colourDisplay} />
@@ -251,6 +253,7 @@ export const ProductionTechpack = ({ sample, onBack }: ProductionTechpackProps) 
                   <HeaderRow label="Neckline" value={resolveNeckline()} />
                   <HeaderRow label="Sleeve" value={resolveSleeve()} />
                   <HeaderRow label="Order Qty" value={sample.totalQty ? String(sample.totalQty) : '—'} />
+                  <HeaderRow label="Distribution" value={design?.distribution || '—'} />
                 </tbody>
               </table>
             </div>
