@@ -54,6 +54,28 @@ export interface TechpackAnnotations {
   createdAt: Date;
 }
 
+// Colorway specification
+export interface ColorwayFabricEntry {
+  fabricCode: string;
+  composition: string;
+  colour: string;
+}
+
+export interface Colorway {
+  id: string;
+  name: string;
+  fabrics: Record<string, ColorwayFabricEntry>; // keyed by component: shirt, lowers, dupatta, other
+  labels: Record<string, string[]>; // keyed by component
+  trims: Record<string, string[]>; // keyed by component
+}
+
+// Per-component finish details
+export interface ComponentFinish {
+  hem?: string;
+  seams?: string;
+  necklineFinish?: string;
+}
+
 // 4-View sketches
 export interface SketchViews {
   front?: string;
@@ -158,6 +180,19 @@ export interface Design {
   additionalNotes?: string;
   createdAt: Date;
   status: 'pending' | 'approved' | 'rejected' | 'in-progress';
+
+  // New header fields
+  textileDesigner?: string;
+  distribution?: string;
+  specialInstructions?: string;
+
+  // Multi-colorway support
+  colorways?: Colorway[];
+
+  // Per-component finishes & techniques
+  componentFinishes?: Record<string, ComponentFinish>; // keyed by component name
+  componentTechniques?: Record<string, string>; // keyed by component name
+  componentLabels?: Record<string, string[]>; // keyed by component name
 
   // Production additions
   productionNotes?: ProductionNote[];
