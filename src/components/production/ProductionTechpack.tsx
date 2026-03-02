@@ -260,6 +260,26 @@ export const ProductionTechpack = ({ sample, onBack }: ProductionTechpackProps) 
           </CardContent>
         </Card>
 
+        {/* ─── 1b. COLORWAY & FABRIC MATRIX ─── */}
+        {design?.colorways && design.colorways.length > 0 && (
+          <ColorwayFabricMatrix colorways={design.colorways} sectionNumber="1b" />
+        )}
+
+        {/* ─── 1c. PER-COMPONENT DETAILS ─── */}
+        {design && (
+          <ComponentFinishesSection
+            componentFinishes={design.componentFinishes}
+            componentTechniques={design.componentTechniques}
+            componentLabels={design.componentLabels}
+            sectionNumber="1c"
+          />
+        )}
+
+        {/* ─── 1d. SPECIAL INSTRUCTIONS ─── */}
+        {design && (
+          <SpecialInstructionsSection instructions={design.specialInstructions} sectionNumber="1d" />
+        )}
+
         {/* ─── 2. 4-VIEW TECHNICAL SKETCH ─── */}
         <Card>
           <CardHeader className="pb-3">
