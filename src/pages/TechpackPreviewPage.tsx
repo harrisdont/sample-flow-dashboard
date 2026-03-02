@@ -140,6 +140,9 @@ const TechpackPreviewPage = () => {
     updateDesign(design.id, {
       seamFinish,
       additionalNotes,
+      textileDesigner,
+      distribution,
+      specialInstructions,
       constructionCallouts: callouts,
       gradedSpecSheet: design.gradedSpecSheet ? { ...design.gradedSpecSheet, measurements: specMeasurements } : undefined,
       bodySizeChart,
@@ -147,13 +150,14 @@ const TechpackPreviewPage = () => {
       artworkPlacements,
     });
     toast({ title: 'Changes saved', description: 'Techpack has been updated.' });
-  }, [design, seamFinish, additionalNotes, callouts, specMeasurements, bodySizeChart, bomItems, artworkPlacements, updateDesign, toast]);
+  }, [design, seamFinish, additionalNotes, textileDesigner, distribution, specialInstructions, callouts, specMeasurements, bodySizeChart, bomItems, artworkPlacements, updateDesign, toast]);
 
   const handleApprove = useCallback(() => {
     if (!design) return;
     // Save first
     updateDesign(design.id, {
-      seamFinish, additionalNotes, constructionCallouts: callouts,
+      seamFinish, additionalNotes, textileDesigner, distribution, specialInstructions,
+      constructionCallouts: callouts,
       gradedSpecSheet: design.gradedSpecSheet ? { ...design.gradedSpecSheet, measurements: specMeasurements } : undefined,
       bodySizeChart, billOfMaterials: bomItems, artworkPlacements,
     });
