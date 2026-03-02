@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MainNav } from '@/components/MainNav';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { NotificationBell } from '@/components/alerts/NotificationBell';
-import { useDesignStore, Design, ConstructionCallout, GradedMeasurement, BOMItem, BodySizeEntry, ArtworkPlacement } from '@/data/designStore';
+import { useDesignStore, Design, ConstructionCallout, GradedMeasurement, BOMItem, BodySizeEntry, ArtworkPlacement, Colorway, ComponentFinish } from '@/data/designStore';
+import { ColorwayFabricMatrix, ComponentFinishesSection, SpecialInstructionsSection } from '@/components/techpack/ColorwayFabricMatrix';
 import { useSampleStore } from '@/data/sampleStore';
 import { useFabricStore, IRONING_INSTRUCTION_LABELS, COMPONENT_TYPE_LABELS } from '@/data/fabricStore';
 import { useColorPaletteStore } from '@/data/colorPaletteStore';
@@ -102,6 +103,9 @@ const TechpackPreviewPage = () => {
   // Editable state
   const [seamFinish, setSeamFinish] = useState(design?.seamFinish || '');
   const [additionalNotes, setAdditionalNotes] = useState(design?.additionalNotes || '');
+  const [textileDesigner, setTextileDesigner] = useState(design?.textileDesigner || '');
+  const [distribution, setDistribution] = useState(design?.distribution || '');
+  const [specialInstructions, setSpecialInstructions] = useState(design?.specialInstructions || '');
   const [callouts, setCallouts] = useState<ConstructionCallout[]>(design?.constructionCallouts || []);
   const [specMeasurements, setSpecMeasurements] = useState<GradedMeasurement[]>(
     design?.gradedSpecSheet?.measurements || []
@@ -136,6 +140,9 @@ const TechpackPreviewPage = () => {
     updateDesign(design.id, {
       seamFinish,
       additionalNotes,
+      textileDesigner,
+      distribution,
+      specialInstructions,
       constructionCallouts: callouts,
       gradedSpecSheet: design.gradedSpecSheet ? { ...design.gradedSpecSheet, measurements: specMeasurements } : undefined,
       bodySizeChart,
@@ -143,13 +150,14 @@ const TechpackPreviewPage = () => {
       artworkPlacements,
     });
     toast({ title: 'Changes saved', description: 'Techpack has been updated.' });
-  }, [design, seamFinish, additionalNotes, callouts, specMeasurements, bodySizeChart, bomItems, artworkPlacements, updateDesign, toast]);
+  }, [design, seamFinish, additionalNotes, textileDesigner, distribution, specialInstructions, callouts, specMeasurements, bodySizeChart, bomItems, artworkPlacements, updateDesign, toast]);
 
   const handleApprove = useCallback(() => {
     if (!design) return;
     // Save first
     updateDesign(design.id, {
-      seamFinish, additionalNotes, constructionCallouts: callouts,
+      seamFinish, additionalNotes, textileDesigner, distribution, specialInstructions,
+      constructionCallouts: callouts,
       gradedSpecSheet: design.gradedSpecSheet ? { ...design.gradedSpecSheet, measurements: specMeasurements } : undefined,
       bodySizeChart, billOfMaterials: bomItems, artworkPlacements,
     });
@@ -347,6 +355,14 @@ const TechpackPreviewPage = () => {
                   <HeaderRow label="Sample Size" value={design.gradedSpecSheet?.sampleSize || sample?.sizes[0] || '—'} />
                   <HeaderRow label="Size Range" value={design.gradedSpecSheet?.sizeRange || sample?.sizes.join(', ') || '—'} />
                   <HeaderRow label="Designer" value={sample?.designerName || '—'} />
+                  {canEdit ? (
+                    <tr className="border-b border-border last:border-b-0">
+                      <td className="px-4 py-2 text-muted-foreground font-medium w-1/3 bg-muted/30">Textile Designer</td>
+                      <td className="px-4 py-2"><Input value={textileDesigner} onChange={e => setTextileDesigner(e.target.value)} className="h-8 text-sm" /></td>
+                    </tr>
+                  ) : (
+                    <HeaderRow label="Textile Designer" value={textileDesigner || design.textileDesigner || '—'} />
+                  )}
                   <HeaderRow label="Line" value={sample?.lineName || '—'} />
                   <HeaderRow label="Target Date" value={sample?.targetDate || '—'} />
                   <HeaderRow label="Colour" value={colourDisplay} />
@@ -367,6 +383,14 @@ const TechpackPreviewPage = () => {
                   <HeaderRow label="Neckline" value={resolveNeckline()} />
                   <HeaderRow label="Sleeve" value={resolveSleeve()} />
                   <HeaderRow label="Order Qty" value={sample?.totalQty ? String(sample.totalQty) : '—'} />
+                  {canEdit ? (
+                    <tr className="border-b border-border last:border-b-0">
+                      <td className="px-4 py-2 text-muted-foreground font-medium w-1/3 bg-muted/30">Distribution</td>
+                      <td className="px-4 py-2"><Input value={distribution} onChange={e => setDistribution(e.target.value)} className="h-8 text-sm" /></td>
+                    </tr>
+                  ) : (
+                    <HeaderRow label="Distribution" value={distribution || design.distribution || '—'} />
+                  )}
                 </tbody>
               </table>
             </div>
@@ -381,6 +405,40 @@ const TechpackPreviewPage = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* ─── 1b. COLORWAY & FABRIC MATRIX ─── */}
+        {design.colorways && design.colorways.length > 0 && (
+          <ColorwayFabricMatrix colorways={design.colorways} sectionNumber="1b" />
+        )}
+
+        {/* ─── 1c. PER-COMPONENT DETAILS ─── */}
+        <ComponentFinishesSection
+          componentFinishes={design.componentFinishes}
+          componentTechniques={design.componentTechniques}
+          componentLabels={design.componentLabels}
+          sectionNumber="1c"
+        />
+
+        {/* ─── 1d. SPECIAL INSTRUCTIONS ─── */}
+        {canEdit ? (
+          (specialInstructions || true) && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">1d · Special Instructions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={specialInstructions}
+                  onChange={e => setSpecialInstructions(e.target.value)}
+                  placeholder="Enter special instructions for production..."
+                  className="text-sm min-h-[80px]"
+                />
+              </CardContent>
+            </Card>
+          )
+        ) : (
+          <SpecialInstructionsSection instructions={specialInstructions || design.specialInstructions} sectionNumber="1d" />
+        )}
 
         {/* ─── 2. TECHNICAL SKETCH ─── */}
         <Card>
