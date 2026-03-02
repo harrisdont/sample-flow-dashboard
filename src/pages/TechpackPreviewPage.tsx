@@ -355,6 +355,14 @@ const TechpackPreviewPage = () => {
                   <HeaderRow label="Sample Size" value={design.gradedSpecSheet?.sampleSize || sample?.sizes[0] || '—'} />
                   <HeaderRow label="Size Range" value={design.gradedSpecSheet?.sizeRange || sample?.sizes.join(', ') || '—'} />
                   <HeaderRow label="Designer" value={sample?.designerName || '—'} />
+                  {canEdit ? (
+                    <tr className="border-b border-border last:border-b-0">
+                      <td className="px-4 py-2 text-muted-foreground font-medium w-1/3 bg-muted/30">Textile Designer</td>
+                      <td className="px-4 py-2"><Input value={textileDesigner} onChange={e => setTextileDesigner(e.target.value)} className="h-8 text-sm" /></td>
+                    </tr>
+                  ) : (
+                    <HeaderRow label="Textile Designer" value={textileDesigner || design.textileDesigner || '—'} />
+                  )}
                   <HeaderRow label="Line" value={sample?.lineName || '—'} />
                   <HeaderRow label="Target Date" value={sample?.targetDate || '—'} />
                   <HeaderRow label="Colour" value={colourDisplay} />
@@ -375,6 +383,14 @@ const TechpackPreviewPage = () => {
                   <HeaderRow label="Neckline" value={resolveNeckline()} />
                   <HeaderRow label="Sleeve" value={resolveSleeve()} />
                   <HeaderRow label="Order Qty" value={sample?.totalQty ? String(sample.totalQty) : '—'} />
+                  {canEdit ? (
+                    <tr className="border-b border-border last:border-b-0">
+                      <td className="px-4 py-2 text-muted-foreground font-medium w-1/3 bg-muted/30">Distribution</td>
+                      <td className="px-4 py-2"><Input value={distribution} onChange={e => setDistribution(e.target.value)} className="h-8 text-sm" /></td>
+                    </tr>
+                  ) : (
+                    <HeaderRow label="Distribution" value={distribution || design.distribution || '—'} />
+                  )}
                 </tbody>
               </table>
             </div>
