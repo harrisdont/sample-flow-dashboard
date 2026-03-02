@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MainNav } from '@/components/MainNav';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
 import { NotificationBell } from '@/components/alerts/NotificationBell';
-import { useDesignStore, Design, ConstructionCallout, GradedMeasurement, BOMItem, BodySizeEntry, ArtworkPlacement } from '@/data/designStore';
+import { useDesignStore, Design, ConstructionCallout, GradedMeasurement, BOMItem, BodySizeEntry, ArtworkPlacement, Colorway, ComponentFinish } from '@/data/designStore';
+import { ColorwayFabricMatrix, ComponentFinishesSection, SpecialInstructionsSection } from '@/components/techpack/ColorwayFabricMatrix';
 import { useSampleStore } from '@/data/sampleStore';
 import { useFabricStore, IRONING_INSTRUCTION_LABELS, COMPONENT_TYPE_LABELS } from '@/data/fabricStore';
 import { useColorPaletteStore } from '@/data/colorPaletteStore';
@@ -102,6 +103,9 @@ const TechpackPreviewPage = () => {
   // Editable state
   const [seamFinish, setSeamFinish] = useState(design?.seamFinish || '');
   const [additionalNotes, setAdditionalNotes] = useState(design?.additionalNotes || '');
+  const [textileDesigner, setTextileDesigner] = useState(design?.textileDesigner || '');
+  const [distribution, setDistribution] = useState(design?.distribution || '');
+  const [specialInstructions, setSpecialInstructions] = useState(design?.specialInstructions || '');
   const [callouts, setCallouts] = useState<ConstructionCallout[]>(design?.constructionCallouts || []);
   const [specMeasurements, setSpecMeasurements] = useState<GradedMeasurement[]>(
     design?.gradedSpecSheet?.measurements || []
