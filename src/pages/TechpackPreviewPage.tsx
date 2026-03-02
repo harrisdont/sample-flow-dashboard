@@ -406,6 +406,40 @@ const TechpackPreviewPage = () => {
           </CardContent>
         </Card>
 
+        {/* ─── 1b. COLORWAY & FABRIC MATRIX ─── */}
+        {design.colorways && design.colorways.length > 0 && (
+          <ColorwayFabricMatrix colorways={design.colorways} sectionNumber="1b" />
+        )}
+
+        {/* ─── 1c. PER-COMPONENT DETAILS ─── */}
+        <ComponentFinishesSection
+          componentFinishes={design.componentFinishes}
+          componentTechniques={design.componentTechniques}
+          componentLabels={design.componentLabels}
+          sectionNumber="1c"
+        />
+
+        {/* ─── 1d. SPECIAL INSTRUCTIONS ─── */}
+        {canEdit ? (
+          (specialInstructions || true) && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">1d · Special Instructions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={specialInstructions}
+                  onChange={e => setSpecialInstructions(e.target.value)}
+                  placeholder="Enter special instructions for production..."
+                  className="text-sm min-h-[80px]"
+                />
+              </CardContent>
+            </Card>
+          )
+        ) : (
+          <SpecialInstructionsSection instructions={specialInstructions || design.specialInstructions} sectionNumber="1d" />
+        )}
+
         {/* ─── 2. TECHNICAL SKETCH ─── */}
         <Card>
           <CardHeader className="pb-3">
